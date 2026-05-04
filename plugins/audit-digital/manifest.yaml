@@ -1,0 +1,41 @@
+name: audit-digital
+version: 1.0.0
+description: Audit de la présence digitale des entreprises (site web, tech stack, SEO, pixels)
+author: B2B Prospector Team
+active: true
+
+dependencies:
+  - scraper-insee
+
+events_published:
+  - audit.digital_completed
+  - audit.score_calculated
+  - audit.tech_detected
+
+events_subscribed:
+  - prospect.created
+
+endpoints:
+  - path: /api/v1/audit/digital/{prospect_id}
+    method: POST
+    description: Lancer un audit digital
+    handler: start_digital_audit
+  - path: /api/v1/audit/digital/{prospect_id}
+    method: GET
+    description: Récupérer les résultats d'audit
+    handler: get_digital_audit
+  - path: /api/v1/audit/digital/{prospect_id}/score
+    method: GET
+    description: Obtenir le score de maturité digitale
+    handler: get_digital_score
+
+config:
+  timeout_seconds: 30
+  max_pages_to_scan: 5
+  user_agent: "B2BProspector/1.0 (Digital Audit Bot)"
+  scoring_weights:
+    presence: 0.30
+    modernity: 0.25
+    tracking: 0.20
+    compliance: 0.15
+    engagement: 0.10

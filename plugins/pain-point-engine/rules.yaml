@@ -1,0 +1,266 @@
+# Base de règles métier pour la génération d'angles commerciaux
+# Chaque règle transforme un fait vérifié en opportunité commerciale
+
+rules:
+  # === TRACKING & ANALYTICS ===
+  - id: no_ga4
+    name: "Absence Google Analytics 4"
+    condition:
+      fact: "analytics"
+      operator: "not_contains"
+      value: "Google Analytics"
+    angle:
+      title: "Mise en conformité analytics"
+      description: "Votre site ne semble pas utiliser Google Analytics 4. Avec la fin de GA3, c'est le moment de mettre à jour votre tracking."
+      category: "tracking"
+      priority: "high"
+      score: 75
+      evidence_key: "analytics"
+
+  - id: no_pixel_meta
+    name: "Absence Meta Pixel"
+    condition:
+      fact: "analytics"
+      operator: "not_contains"
+      value: "Meta Pixel"
+    angle:
+      title: "Optimisation campagnes social"
+      description: "Nous n'avons pas détecté de Meta Pixel. Cela limite votre capacité à retargeter et optimiser vos pubs Facebook/Instagram."
+      category: "tracking"
+      priority: "medium"
+      score: 60
+      evidence_key: "analytics"
+
+  - id: no_gtm
+    name: "Absence Google Tag Manager"
+    condition:
+      fact: "analytics"
+      operator: "not_contains"
+      value: "Google Tag Manager"
+    angle:
+      title: "Centralisation du tracking"
+      description: "Sans GTM, la gestion de vos tags est dispersée. Centralisez tous vos pixels en un seul endroit."
+      category: "tracking"
+      priority: "medium"
+      score: 55
+      evidence_key: "analytics"
+
+  # === CMS & TECH ===
+  - id: outdated_cms
+    name: "CMS potentiellement obsolète"
+    condition:
+      fact: "cms"
+      operator: "is_null"
+      value: null
+    angle:
+      title: "Modernisation de votre site"
+      description: "Nous n'avons pas pu identifier votre CMS. Un audit technique pourrait révéler des opportunités d'amélioration."
+      category: "technology"
+      priority: "low"
+      score: 40
+      evidence_key: "cms"
+
+  - id: no_https
+    name: "Site non sécurisé HTTPS"
+    condition:
+      fact: "https"
+      operator: "equals"
+      value: false
+    angle:
+      title: "Sécurisation urgente du site"
+      description: "Votre site n'utilise pas HTTPS. Cela impacte votre SEO et la confiance de vos visiteurs."
+      category: "security"
+      priority: "critical"
+      score: 90
+      evidence_key: "https"
+
+  # === SEO ===
+  - id: no_meta_description
+    name: "Absence meta description"
+    condition:
+      fact: "seo.meta_tags.description"
+      operator: "is_empty"
+      value: ""
+    angle:
+      title: "Optimisation SEO on-page"
+      description: "Votre page d'accueil n'a pas de meta description. C'est un élément clé pour améliorer votre CTR dans Google."
+      category: "seo"
+      priority: "high"
+      score: 70
+      evidence_key: "seo.meta_tags"
+
+  - id: missing_h1
+    name: "Balise H1 manquante"
+    condition:
+      fact: "seo.headings.has_h1"
+      operator: "equals"
+      value: false
+    angle:
+      title: "Structure SEO à améliorer"
+      description: "Nous n'avons pas détecté de balise H1. C'est essentiel pour structurer votre contenu aux yeux de Google."
+      category: "seo"
+      priority: "high"
+      score: 65
+      evidence_key: "seo.headings"
+
+  - id: multiple_h1
+    name: "Multiples balises H1"
+    condition:
+      fact: "seo.headings.h1_count"
+      operator: "greater_than"
+      value: 1
+    angle:
+      title: "Optimisation structure H1"
+      description: "Votre page a plusieurs H1. Pour un SEO optimal, il devrait y en avoir un seul par page."
+      category: "seo"
+      priority: "medium"
+      score: 50
+      evidence_key: "seo.headings"
+
+  - id: no_canonical
+    name: "Pas de URL canonique"
+    condition:
+      fact: "seo.meta_tags.canonical"
+      operator: "is_empty"
+      value: ""
+    angle:
+      title: "Prévention duplicate content"
+      description: "Aucune URL canonique détectée. Important pour éviter les problèmes de contenu dupliqué."
+      category: "seo"
+      priority: "medium"
+      score: 45
+      evidence_key: "seo.meta_tags"
+
+  # === ENGAGEMENT ===
+  - id: no_chat
+    name: "Aucun outil de chat"
+    condition:
+      fact: "chat_tools"
+      operator: "is_empty_list"
+      value: []
+    angle:
+      title: "Amélioration engagement visiteurs"
+      description: "Votre site n'a pas d'outil de chat en direct. Ajouter un chat peut augmenter vos conversions de 20-40%."
+      category: "engagement"
+      priority: "medium"
+      score: 55
+      evidence_key: "chat_tools"
+
+  - id: no_scheduler
+    name: "Pas de prise de RDV en ligne"
+    condition:
+      fact: "scheduler"
+      operator: "is_null"
+      value: null
+    angle:
+      title: "Automatisation prise de RDV"
+      description: "Nous n'avons pas détecté d'outil de prise de RDV. Automatiser cela peut vous faire gagner plusieurs heures par semaine."
+      category: "engagement"
+      priority: "medium"
+      score: 60
+      evidence_key: "scheduler"
+
+  - id: no_email_platform
+    name: "Pas d'email marketing visible"
+    condition:
+      fact: "email_platform"
+      operator: "is_null"
+      value: null
+    angle:
+      title: "Stratégie email à développer"
+      description: "Aucune plateforme d'email marketing détectée. L'email reste le canal avec le meilleur ROI."
+      category: "engagement"
+      priority: "low"
+      score: 40
+      evidence_key: "email_platform"
+
+  # === SOCIAL MEDIA ===
+  - id: no_linkedin
+    name: "Pas de lien LinkedIn"
+    condition:
+      fact: "social_media.linkedin"
+      operator: "is_null"
+      value: null
+    angle:
+      title: "Présence LinkedIn à renforcer"
+      description: "Votre site ne link pas vers LinkedIn. En B2B, c'est un canal essentiel pour la crédibilité."
+      category: "social"
+      priority: "high"
+      score: 65
+      evidence_key: "social_media"
+
+  - id: limited_social
+    name: "Présence sociale limitée"
+    condition:
+      fact: "social_media"
+      operator: "count_non_null_less_than"
+      value: 2
+    angle:
+      title: "Élargir présence sociale"
+      description: "Votre présence sur les réseaux sociaux semble limitée. Diversifier vos canaux augmente votre visibilité."
+      category: "social"
+      priority: "low"
+      score: 35
+      evidence_key: "social_media"
+
+  # === PERFORMANCE (si données disponibles) ===
+  - id: slow_lcp
+    name: "LCP trop lent"
+    condition:
+      fact: "performance.lcp"
+      operator: "greater_than"
+      value: 2.5
+    angle:
+      title: "Optimisation performance chargement"
+      description: "Votre Largest Contentful Paint est supérieur à 2.5s. Google pénalise les sites lents."
+      category: "performance"
+      priority: "high"
+      score: 80
+      evidence_key: "performance"
+
+operators:
+  not_contains: "La liste ne contient pas la valeur"
+  equals: "Égal à"
+  is_null: "Est nul"
+  is_empty: "Est vide"
+  is_empty_list: "Liste vide"
+  greater_than: "Supérieur à"
+  less_than: "Inférieur à"
+  count_non_null_less_than: "Nombre d'éléments non-null inférieur à"
+
+categories:
+  tracking:
+    label: "Tracking & Analytics"
+    icon: "📊"
+  technology:
+    label: "Technologie"
+    icon: "⚙️"
+  security:
+    label: "Sécurité"
+    icon: "🔒"
+  seo:
+    label: "SEO"
+    icon: "🔍"
+  engagement:
+    label: "Engagement"
+    icon: "💬"
+  social:
+    label: "Réseaux Sociaux"
+    icon: "🌐"
+  performance:
+    label: "Performance"
+    icon: "⚡"
+
+priorities:
+  critical:
+    label: "Critique"
+    color: "red"
+  high:
+    label: "Élevée"
+    color: "orange"
+  medium:
+    label: "Moyenne"
+    color: "yellow"
+  low:
+    label: "Faible"
+    color: "green"

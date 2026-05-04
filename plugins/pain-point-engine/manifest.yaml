@@ -1,0 +1,36 @@
+name: pain-point-engine
+version: 1.0.0
+description: Génération d'angles commerciaux basés sur des faits vérifiés (0% hallucination)
+author: B2B Prospector Team
+active: true
+
+dependencies:
+  - scraper-insee
+  - audit-digital
+
+events_published:
+  - angles.generated
+  - angle.formatted
+
+events_subscribed:
+  - audit.digital_completed
+
+endpoints:
+  - path: /api/v1/angles/generate
+    method: POST
+    description: Générer des angles commerciaux pour un prospect
+    handler: generate_angles
+  - path: /api/v1/angles/{prospect_id}
+    method: GET
+    description: Liste des angles triés par score
+    handler: get_angles
+  - path: /api/v1/angles/{angle_id}/format
+    method: POST
+    description: Reformuler un angle avec LLM
+    handler: format_angle
+
+config:
+  min_score_threshold: 40
+  max_angles_per_prospect: 5
+  llm_enabled: false
+  rules_file: rules.yaml

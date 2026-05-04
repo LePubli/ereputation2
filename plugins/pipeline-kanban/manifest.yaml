@@ -1,0 +1,62 @@
+name: pipeline-kanban
+version: 1.0.0
+description: Gestion visuelle des prospects en mode Kanban (suivi, métriques, alertes)
+author: B2B Prospector Team
+active: true
+
+dependencies:
+  - scraper-insee
+
+events_published:
+  - prospect.stage_changed
+  - prospect.interaction_added
+  - pipeline.metrics_updated
+
+events_subscribed:
+  - prospect.created
+
+endpoints:
+  - path: /api/v1/pipeline
+    method: GET
+    description: Vue Kanban complète
+    handler: get_pipeline
+  - path: /api/v1/pipeline/{prospect_id}/stage
+    method: PATCH
+    description: Changer l'étape d'un prospect
+    handler: change_stage
+  - path: /api/v1/pipeline/metrics
+    method: GET
+    description: Métriques du pipeline
+    handler: get_metrics
+  - path: /api/v1/pipeline/{prospect_id}/interactions
+    method: POST
+    description: Ajouter une interaction
+    handler: add_interaction
+  - path: /api/v1/pipeline/alerts
+    method: GET
+    description: Alertes prospects
+    handler: get_alerts
+
+config:
+  default_stage: "nouveau"
+  stages:
+    - id: nouveau
+      label: "Nouveau"
+      color: "blue"
+    - id: contacte
+      label: "Contacté"
+      color: "yellow"
+    - id: rdv_pris
+      label: "RDV pris"
+      color: "orange"
+    - id: negociation
+      label: "En négociation"
+      color: "purple"
+    - id: gagne
+      label: "Gagné"
+      color: "green"
+    - id: perdu
+      label: "Perdu"
+      color: "red"
+  alert_days_no_contact: 7
+  alert_hours_before_rdv: 24

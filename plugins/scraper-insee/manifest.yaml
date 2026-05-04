@@ -1,0 +1,35 @@
+name: scraper-insee
+version: 1.0.0
+description: Récupération des données légales d'entreprises via API INSEE et sources open data
+author: B2B Prospector Team
+active: true
+
+dependencies: []
+
+events_published:
+  - prospect.created
+  - prospect.legal_updated
+  - prospect.search_performed
+
+events_subscribed: []
+
+endpoints:
+  - path: /api/v1/prospects
+    method: POST
+    description: Créer un prospect par SIRET
+    handler: create_prospect
+  - path: /api/v1/prospects/{siren}
+    method: GET
+    description: Récupérer les infos légales d'un prospect
+    handler: get_prospect_legal
+  - path: /api/v1/prospects/search
+    method: GET
+    description: Rechercher une entreprise
+    handler: search_prospects
+
+config:
+  insee_api_base: "https://api.insee.fr"
+  insee_token_url: "https://api.insee.fr/token"
+  pappers_api_base: "https://api.pappers.fr/v1"
+  fallback_enabled: true
+  cache_ttl_seconds: 86400
