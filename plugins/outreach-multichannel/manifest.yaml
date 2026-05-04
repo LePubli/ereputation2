@@ -1,0 +1,37 @@
+name: outreach-multichannel
+version: 1.0.0
+description: |
+  Plugin d'outreach multi-canales automatisé (Email, LinkedIn, WhatsApp)
+  avec séquences personnalisées et suivi intelligent des interactions.
+author: B2B Prospector Team
+dependencies:
+  - pain-point-engine
+  - semantic-analyzer
+  - pipeline-kanban
+config:
+  email:
+    smtp_host: "${SMTP_HOST:localhost}"
+    smtp_port: "${SMTP_PORT:587}"
+    smtp_user: "${SMTP_USER:}"
+    smtp_password: "${SMTP_PASSWORD:}"
+    from_address: "${FROM_EMAIL:noreply@prospector.local}"
+    max_daily_sends: 100
+    warmup_enabled: true
+  linkedin:
+    api_key: "${LINKEDIN_API_KEY:}"
+    organization_id: "${LINKEDIN_ORG_ID:}"
+    max_daily_invites: 20
+    max_daily_messages: 50
+  whatsapp:
+    api_key: "${WHATSAPP_API_KEY:}"
+    phone_number_id: "${WHATSAPP_PHONE_ID:}"
+    max_daily_messages: 30
+  sequences:
+    default_delay_hours: 48
+    max_followups: 5
+    stop_on_reply: true
+permissions:
+  - prospects:read
+  - prospects:write
+  - angles:read
+  - events:publish

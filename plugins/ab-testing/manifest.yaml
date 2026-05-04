@@ -1,0 +1,33 @@
+name: ab-testing
+version: 1.0.0
+description: |
+  Module d'A/B testing pour optimiser les campagnes d'outreach.
+  Testez différents sujets, templates, canaux et horaires d'envoi
+  pour maximiser les taux d'ouverture, de réponse et de conversion.
+author: B2B Prospector Team
+dependencies:
+  - outreach-multichannel
+  - pipeline-kanban
+config:
+  testing:
+    min_sample_size: "${AB_MIN_SAMPLE:30}"  # Taille minimale par variante
+    significance_level: "${AB_SIGNIFICANCE:0.05}"  # Niveau de confiance (0.05 = 95%)
+    auto_declare_winner: true
+    winner_threshold: 0.10  # 10% d'amélioration minimum pour déclarer un gagnant
+  metrics:
+    primary: "reply_rate"  # reply_rate, open_rate, click_rate, conversion_rate
+    secondary:
+      - open_rate
+      - click_rate
+      - meeting_booked_rate
+  tracking:
+    track_opens: true
+    track_clicks: true
+    track_replies: true
+    attribution_window_days: 30
+permissions:
+  - prospects:read
+  - prospects:write
+  - sequences:read
+  - sequences:write
+  - events:publish

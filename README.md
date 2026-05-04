@@ -13,6 +13,15 @@ Une application de prospection B2B qui collecte des données publiques vérifié
 - **Pipeline Kanban** pour le suivi des prospects avec métriques et alertes
 - **Architecture plugin** pour une extensibilité maximale
 
+### 🆕 Plugins Avancés (Nouveautés!)
+- **📧 Outreach Multi-Channel** : Séquences automatisées Email, LinkedIn, WhatsApp avec personnalisation IA
+- **🧠 Semantic Analyzer** : Analyse NLP du contenu web pour détecter douleurs et valeurs
+- **🎯 Predictive Scorer** : Scoring prédictif de propension à l'achat (HOT/WARM/COLD)
+- **🎙️ Voice Assistant** : Transcription et analyse d'appels avec détection d'objections
+- **📊 A/B Testing** : Optimisation scientifique des campagnes (sujets, templates, canaux)
+- **⚙️ Automation Engine** : Workflows automatisés et triggers événementiels
+- **🛡️ Compliance Guard** : Gestion RGPD, consentement et désinscription automatique
+
 ### Principes Architecturaux
 - ✅ **Core + Plugins** : Architecture modulaire avec plugins activables/désactivables
 - ✅ **Zero Hallucination** : Toute donnée est traçable à une source publique vérifiée
@@ -32,8 +41,15 @@ Une application de prospection B2B qui collecte des données publiques vérifié
 │   ├── scraper-insee/      # Récupération données légales
 │   ├── audit-digital/      # Audit présence digitale
 │   ├── pain-point-engine/  # Génération angles commerciaux
-│   └── pipeline-kanban/    # Gestion visuelle des prospects
-├── api/                     # Routes API (à implémenter)
+│   ├── pipeline-kanban/    # Gestion visuelle des prospects
+│   ├── semantic-analyzer/  # Analyse NLP contenu web 🆕
+│   ├── predictive-scorer/  # Scoring prédictif 🆕
+│   ├── outreach-multichannel/ # Séquences auto Email/LinkedIn/WhatsApp 🆕
+│   ├── voice-assistant/    # Transcription & analyse appels 🆕
+│   ├── ab-testing/         # Optimisation campagnes 🆕
+│   ├── automation-engine/  # Workflows automatisés 🆕
+│   └── compliance-guard/   # Conformité RGPD 🆕
+├── api/                     # Routes API
 ├── models/                  # Modèles de données
 ├── services/                # Services métier
 ├── utils/                   # Utilitaires
@@ -106,6 +122,47 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 - `GET /api/v1/pipeline/metrics` - Métriques du pipeline
 - `POST /api/v1/pipeline/{prospect_id}/interactions` - Ajouter interaction
 - `GET /api/v1/pipeline/alerts` - Alertes prospects
+
+### 🆕 Plugin: Semantic Analyzer
+- `POST /api/v1/semantic/analyze` - Analyser le contenu d'un site web
+- `GET /api/v1/semantic/pain-points/categories` - Catégories de douleurs détectables
+
+### 🆕 Plugin: Predictive Scorer
+- `POST /api/v1/score/calculate` - Calculer le score prédictif d'un prospect
+- `GET /api/v1/score/{prospect_id}` - Récupérer le score et ses composantes
+- `GET /api/v1/score/breakdown` - Détail du scoring par dimension
+
+### 🆕 Plugin: Outreach Multi-Channel
+- `POST /api/v1/outreach/sequences` - Créer une séquence multi-canal
+- `POST /api/v1/outreach/email/generate` - Générer un email personnalisé
+- `POST /api/v1/outreach/email/send` - Envoyer un email
+- `POST /api/v1/outreach/linkedin/send` - Envoyer un message LinkedIn
+- `POST /api/v1/outreach/whatsapp/send` - Envoyer un message WhatsApp
+- `GET /api/v1/outreach/stats` - Statistiques des campagnes
+
+### 🆕 Plugin: Voice Assistant
+- `POST /api/v1/voice/transcribe` - Transcrire un fichier audio
+- `POST /api/v1/voice/analyze` - Analyser une transcription d'appel
+- `POST /api/v1/voice/upload-and-analyze` - Workflow complet upload + analyse
+- `POST /api/v1/voice/batch-analyze` - Analyser plusieurs appels en batch
+
+### 🆕 Plugin: A/B Testing
+- `POST /api/v1/ab-testing/tests` - Créer un test A/B
+- `GET /api/v1/ab-testing/tests` - Lister tous les tests
+- `POST /api/v1/ab-testing/tests/{id}/start` - Démarrer un test
+- `POST /api/v1/ab-testing/events` - Enregistrer un événement de conversion
+- `GET /api/v1/ab-testing/tests/{id}/winner` - Récupérer le gagnant
+- `GET /api/v1/ab-testing/sample-size-calculator` - Calculateur de taille d'échantillon
+
+### 🆕 Plugin: Automation Engine
+- `POST /api/v1/automation/workflows` - Créer un workflow automatisé
+- `GET /api/v1/automation/triggers` - Liste des triggers disponibles
+- `POST /api/v1/automation/execute` - Exécuter un workflow manuellement
+
+### 🆕 Plugin: Compliance Guard
+- `POST /api/v1/compliance/check` - Vérifier la conformité RGPD
+- `POST /api/v1/compliance/opt-out` - Gérer une demande de désinscription
+- `GET /api/v1/compliance/audit-log` - Consulter le journal d'audit
 
 ## 🔌 Système de Plugins
 

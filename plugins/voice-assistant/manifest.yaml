@@ -1,0 +1,29 @@
+name: voice-assistant
+version: 1.0.0
+description: |
+  Assistant vocal pour la transcription et l'analyse d'appels commerciaux.
+  Transcrit les appels en temps réel, détecte les points clés, et génère
+  automatiquement des notes structurées et des actions de suivi.
+author: B2B Prospector Team
+dependencies:
+  - pipeline-kanban
+  - pain-point-engine
+config:
+  speech_to_text:
+    engine: "${STT_ENGINE:whisper}"  # whisper, google, azure
+    language: "${STT_LANGUAGE:fr}"
+    model_size: "${WHISPER_MODEL:base}"  # tiny, base, small, medium, large
+  analysis:
+    detect_objections: true
+    detect_interest_signals: true
+    extract_commitments: true
+    sentiment_analysis: true
+  integrations:
+    auto_create_notes: true
+    auto_update_pipeline: true
+    alert_on_hot_signals: true
+permissions:
+  - prospects:read
+  - prospects:write
+  - interactions:write
+  - events:publish

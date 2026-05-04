@@ -10,8 +10,7 @@ venv/
 .venv/
 .ENV
 .ENV.*
-.venv/
-.venv.*
+.venv.bak/
 pip-log.txt
 pip-delete-this-directory.txt
 .tox/
@@ -22,7 +21,50 @@ nosetests.xml
 coverage.xml
 *.cover
 *.log
-.git/modules/
+.pytest_cache/
+.mypy_cache/
+.hypothesis/
+
+# Distribution / packaging
+.Python
+env/
+venv/
+.venv/
+.ENV
+.ENV.*
+.venv.bak/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.pytest_cache/
+.mypy_cache/
+.hypothesis/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*.tmp
+
+# OS
 .DS_Store
 Thumbs.db
+
+# Environment variables
+.env
+.env.local
+.env.*
+
+# Build artifacts
+dist/
+build/
+target/
 ```
