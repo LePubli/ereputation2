@@ -1,0 +1,217 @@
+version: '3.8'
+
+# Configuration Production-Ready avec PostgreSQL, Monitoring et High Availability
+
+services:
+  # Application principale (réplique multiple pour HA)
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    deploy:
+      replicas: 3
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+    environment:
+      - ENVIRONMENT=production
+      - DEBUG=false
+      - REDIS_HOST=redis-primary
+      - DATABASE_URL=postgresql://prospector:${DB_PASSWORD}@postgres-primary:5432/prospector
+      - LOG_LEVEL=INFO
+    volumes:
+      - app-data:/app/data
+      - app-logs:/app/logs
+    depends_on:
+      postgres-primary:
+        condition: service_healthy
+      redis-primary:
+        condition: service_healthy
+    networks:
+      - prospector-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # PostgreSQL Primary (Master)
+  postgres-primary:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: prospector
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme_production_password}
+      POSTGRES_DB: prospector
+    volumes:
+      - postgres-primary-data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    command: >
+      postgres 
+      -c wal_level=replica 
+      -c hot_standby=on 
+      -c max_wal_senders=10 
+      -c max_replication_slots=10 
+      -c hot_standby_feedback=on
+    ports:
+      - "5432:5432"
+    networks:
+      - prospector-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U prospector -d prospector"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # PostgreSQL Replica (Slave for read scaling)
+  postgres-replica:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: prospector
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme_production_password}
+    volumes:
+      - postgres-replica-data:/var/lib/postgresql/data
+    command: >
+      bash -c "
+      until pg_basebackup --pgdata=/var/lib/postgresql/data -R --slot=replication_slot --host=postgres-primary --port=5432 --username=prospector;
+      do echo 'Waiting for primary to connect...'; sleep 1s; done;
+      echo 'Backup done, starting replica...';
+      chmod 0700 /var/lib/postgresql/data;
+      postgres
+      "
+    depends_on:
+      postgres-primary:
+        condition: service_healthy
+    networks:
+      - prospector-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U prospector"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Primary (Master)
+  redis-primary:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis_secret}
+    volumes:
+      - redis-primary-data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - prospector-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Replica
+  redis-replica:
+    image: redis:7-alpine
+    command: redis-server --replicaof redis-primary 6379 --requirepass ${REDIS_PASSWORD:-redis_secret} --masterauth ${REDIS_PASSWORD:-redis_secret}
+    depends_on:
+      - redis-primary
+    networks:
+      - prospector-network
+
+  # Prometheus pour le monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9090:9090"
+    networks:
+      - prospector-network
+    depends_on:
+      - app
+
+  # Grafana pour les dashboards
+  grafana:
+    image: grafana/grafana:latest
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin_secure_password}
+      GF_USERS_ALLOW_SIGN_UP: false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources
+    ports:
+      - "3000:3000"
+    networks:
+      - prospector-network
+    depends_on:
+      - prometheus
+
+  # Traefik Reverse Proxy & Load Balancer
+  traefik:
+    image: traefik:v2.10
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.email=${LETSENCRYPT_EMAIL}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik-letsencrypt:/letsencrypt
+    networks:
+      - prospector-network
+    labels:
+      - "traefik.enable=true"
+
+  # Flower pour surveiller les tâches async (optionnel)
+  flower:
+    image: mher/flower:latest
+    environment:
+      FLOWER_PORT: 5555
+      CELERY_BROKER_URL: redis://:${REDIS_PASSWORD:-redis_secret}@redis-primary:6379/0
+    ports:
+      - "5555:5555"
+    networks:
+      - prospector-network
+    depends_on:
+      - redis-primary
+    profiles:
+      - monitoring
+
+volumes:
+  app-data:
+  app-logs:
+  postgres-primary-data:
+  postgres-replica-data:
+  redis-primary-data:
+  prometheus-data:
+  grafana-data:
+  traefik-letsencrypt:
+
+networks:
+  prospector-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
