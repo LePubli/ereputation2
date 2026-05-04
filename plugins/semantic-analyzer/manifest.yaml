@@ -1,0 +1,15 @@
+name: semantic-analyzer
+version: 1.0.0
+description: Analyse sémantique NLP du contenu web pour détecter douleurs et valeurs
+author: B2B Prospector Team
+dependencies:
+  - audit-digital
+permissions:
+  - web_access
+  - nlp_processing
+config:
+  language: fr
+  models:
+    - camembert-base
+    - keybert
+  confidence_threshold: 0.75

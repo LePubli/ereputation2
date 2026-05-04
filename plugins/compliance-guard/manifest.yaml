@@ -1,0 +1,23 @@
+name: compliance-guard
+version: 1.0.0
+description: Gestionnaire de conformité RGPD et vérification de fraude/solvabilité
+author: B2B Prospector Team
+dependencies:
+  - scraper-insee
+permissions:
+  - data_access
+  - external_apis
+config:
+  rgpd:
+    retention_days: 365
+    auto_anonymize: true
+    consent_tracking: true
+  fraud_check:
+    enabled: true
+    sources:
+      - bodacc
+      - infogreffe
+      - pappers
+  solvency:
+    min_score: 50
+    check_financials: true

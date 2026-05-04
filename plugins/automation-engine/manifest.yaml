@@ -1,0 +1,22 @@
+name: automation-engine
+version: 1.0.0
+description: Moteur d'automatisation des séquences multi-canales (email, LinkedIn, WhatsApp)
+author: B2B Prospector Team
+dependencies:
+  - pipeline-kanban
+  - predictive-scorer
+permissions:
+  - email_send
+  - social_access
+  - scheduling
+config:
+  channels:
+    - email
+    - linkedin
+    - whatsapp
+  max_sequences_per_day: 50
+  delay_between_messages_hours: 24
+  working_hours:
+    start: 9
+    end: 18
+  timezone: Europe/Paris

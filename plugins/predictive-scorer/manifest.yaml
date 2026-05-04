@@ -1,0 +1,22 @@
+name: predictive-scorer
+version: 1.0.0
+description: Scoring prédictif de propension à l'achat basé sur données multi-sources
+author: B2B Prospector Team
+dependencies:
+  - scraper-insee
+  - audit-digital
+  - semantic-analyzer
+permissions:
+  - data_access
+  - ml_inference
+config:
+  scoring_model: rule_based_v1
+  weights:
+    digital_maturity: 0.25
+    financial_health: 0.30
+    pain_intensity: 0.25
+    engagement_signals: 0.20
+  thresholds:
+    hot_lead: 75
+    warm_lead: 50
+    cold_lead: 0
