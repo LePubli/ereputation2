@@ -3,8 +3,10 @@ B2B Prospector - Application principale FastAPI
 Copilote commercial B2B modulaire et production-ready
 """
 import asyncio
+import importlib
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Dict, Any, List
+from pathlib import Path
 
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -18,6 +20,67 @@ from core.plugin_manager import plugin_manager
 
 # Configuration du logging
 setup_logging()
+
+
+def load_plugin_routes(app: FastAPI) -> int:
+    """
+    Charge dynamiquement les routes de tous les plugins actifs
+    Returns:
+        Nombre de routes chargées
+    """
+    routes_count = 0
+    plugins_dir = settings.PLUGINS_DIR
+    
+    for plugin_info in plugin_manager.plugins.values():
+        if not plugin_info.active:
+            continue
+        
+        # Cherche le module routes.py dans le plugin
+        routes_path = plugin_info.path / "routes.py"
+        main_path = plugin_info.path / "main.py"
+        
+        router = None
+        
+        # Priorité à routes.py s'il existe
+        if routes_path.exists():
+            try:
+                spec = importlib.util.spec_from_file_location(
+                    f"{plugin_info.name}.routes",
+                    routes_path
+                )
+                if spec and spec.loader:
+                    module = importlib.util.module_from_spec(spec)
+                    spec.loader.exec_module(module)
+                    
+                    if hasattr(module, "router"):
+                        router = module.router
+                        logger.info(f"Loaded routes from {plugin_info.name}/routes.py")
+            except Exception as e:
+                logger.error(f"Failed to load routes from {plugin_info.name}: {e}")
+        
+        # Fallback sur main.py si routes.py n'existe pas
+        elif main_path.exists():
+            try:
+                spec = importlib.util.spec_from_file_location(
+                    f"{plugin_info.name}.main",
+                    main_path
+                )
+                if spec and spec.loader:
+                    module = importlib.util.module_from_spec(spec)
+                    spec.loader.exec_module(module)
+                    
+                    if hasattr(module, "router"):
+                        router = module.router
+                        logger.info(f"Loaded routes from {plugin_info.name}/main.py")
+            except Exception as e:
+                logger.error(f"Failed to load routes from {plugin_info.name}/main.py: {e}")
+        
+        # Inclus le router dans l'application
+        if router:
+            app.include_router(router)
+            routes_count += len(router.routes)
+    
+    return routes_count
 
 
 @asynccontextmanager
@@ -36,6 +99,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     # Initialize active plugins
     loaded = plugin_manager.initialize_all()
     logger.info(f"Loaded {loaded} plugins")
+    
+    # Load plugin routes dynamically
+    routes_count = load_plugin_routes(app)
+    logger.info(f"Loaded {routes_count} plugin routes")
     
     # Start event listener in background
     asyncio.create_task(event_bus.listen())
