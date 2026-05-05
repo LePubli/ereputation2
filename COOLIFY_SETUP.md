@@ -1,266 +1,204 @@
-# 🚀 Guide d'Installation sur Coolify
+--- COOLIFY_DEPLOYMENT.md (原始)
 
-Ce guide vous accompagne pas à pas pour déployer **B2B Prospector** sur votre VPS via **Coolify**.
+
++++ COOLIFY_DEPLOYMENT.md (修改后)
+# 🚀 Guide de Déploiement Coolify - B2B Prospector
+
+## ✅ Problème Résolu
+
+L'erreur `PermissionError: [Errno 13] Permission denied: '/app/logs/prospector.log'` a été corrigée.
+
+### Modifications Apportées
+
+1. **Dockerfile** : Création des dossiers `/app/logs` et `/app/data` avec les bons permissions avant le passage en `non-root user`
+2. **docker-compose.yml** : Ajout d'une commande personnalisée qui assure les permissions au démarrage
+3. **Volumes locaux** : Création des dossiers `logs/` et `data/` à la racine avec permissions ouvertes
 
 ---
 
-## 📋 Prérequis
+## 📋 Instructions pour Coolify
 
-1. **Un VPS** (Hetzner, DigitalOcean, OVH, etc.) avec Docker installé
-2. **Coolify** déjà installé sur le VPS ([Documentation Coolify](https://coolify.io/docs))
-3. **Un nom de domaine** pointant vers votre VPS (optionnel mais recommandé)
-4. **Clés API** (optionnelles selon les fonctionnalités souhaitées) :
-   - API INSEE (gratuit) ou Pappers/BODACC
-   - OpenAI (pour reformulation LLM)
-   - Autres services selon plugins activés
+### Option 1: Docker Compose (Recommandé)
 
----
+Dans Coolify, sélectionnez **"Docker Compose"** comme source et collez ce contenu :
 
-## 🎯 Méthode 1 : Import Direct du Docker Compose (Recommandé)
+```yaml
+version: '3.8'
 
-### Étape 1 : Préparer le Repository
+services:
+  app:
+    image: votre-registry/b2b-prospector:latest
+    # OU build from git:
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=production
+      - DEBUG=false
+      - REDIS_HOST=redis
+      - DATABASE_URL=sqlite:///./data/prospector.db
+      - SECRET_KEY=votre-cle-secrete-generer-aleatoirement
+    volumes:
+      - prospector-/app/data
+      - prospector-logs:/app/logs
+    depends_on:
+      - redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
-1. **Pusher votre code sur GitHub/GitLab** :
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis-/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+
+volumes:
+  prospector-
+  prospector-logs:
+  redis-
+```
+
+### Option 2: Git Repository
+
+1. **Push your code to GitHub/GitLab**
    ```bash
    cd /workspace
    git init
    git add .
    git commit -m "Initial commit - B2B Prospector ready for Coolify"
-   git remote add origin https://github.com/VOTRE_USER/b2b-prospector.git
+   git branch -M main
+   git remote add origin https://github.com/votre-user/b2b-prospector.git
    git push -u origin main
    ```
 
-2. **Vérifier que le fichier `docker-compose.coolify.yml` est présent** à la racine.
+2. **Dans Coolify** :
+   - Click "New Resource" → "Git Repository"
+   - Connectez votre repository GitHub/GitLab
+   - Sélectionnez la branche `main`
+   - Build Pack: **Nixpacks** ou **Dockerfile**
+   - Root Directory: `/` (laisser vide)
+   - Publish Directory: laisser vide
+   - Build Command: laisser vide (utilize Dockerfile)
+   - Start Command: laisser vide (utilize CMD in Dockerfile)
 
-### Étape 2 : Configurer dans Coolify
+3. **Variables d'environnement à configurer dans Coolify** :
+   ```
+   ENVIRONMENT=production
+   DEBUG=false
+   SECRET_KEY=<generer-une-cle-aleatoire>
+   REDIS_HOST=redis
+   DATABASE_URL=sqlite:///./data/prospector.db
+   ```
 
-1. **Connectez-vous à Coolify** (http://votre-vps-ip:8000)
-
-2. **Créer un nouveau projet** :
-   - Cliquez sur **"New Project"**
-   - Nom : `B2B Prospector`
-   - Description : `Copilote commercial B2B intelligent`
-
-3. **Ajouter une nouvelle ressource** :
-   - Cliquez sur **"New Resource"** → **"Docker Compose"**
-   - Source : **Git Repository**
-   - URL : `https://github.com/VOTRE_USER/b2b-prospector.git`
-   - Branche : `main`
-   - Fichier Docker Compose : `docker-compose.coolify.yml`
-
-4. **Configurer les Variables d'Environnement** :
-   
-   Dans l'interface Coolify, ajoutez ces variables sensibles (Secrets) :
-
-   | Variable | Valeur Recommandée | Description |
-   |----------|---------------------|-------------|
-   | `POSTGRES_USER` | `prospector` | Utilisateur DB |
-   | `POSTGRES_PASSWORD` | `Générez_un_mdp_complexe_32_chars` | Mot de passe DB |
-   | `POSTGRES_DB` | `prospector_db` | Nom de la DB |
-   | `REDIS_PASSWORD` | `Générez_un_mdp_complexe_32_chars` | Mot de passe Redis |
-   | `SECRET_KEY` | `Générez_une_clé_secrète_64_chars` | Clé de chiffrement JWT |
-   | `INSEE_API_KEY` | *(Optionnel)* | Clé API INSEE |
-   | `PAPPERS_API_KEY` | *(Optionnel)* | Clé API Pappers |
-   | `OPENAI_API_KEY` | *(Optionnel)* | Clé OpenAI pour LLM |
-
-   > 💡 **Astuce** : Générez des mots de passe forts avec :
-   > ```bash
-   > openssl rand -base64 32
-   > ```
-
-5. **Configurer le Domaine** (Optionnel) :
-   - Allez dans l'onglet **"Domains"** de la ressource
-   - Ajoutez : `prospector.votre-domaine.com`
-   - Coolify gérera automatiquement le certificat SSL (Let's Encrypt)
-
-6. **Déployer** :
-   - Cliquez sur **"Deploy"**
-   - Attendez que les conteneurs démarrent (2-5 minutes)
-   - Vérifiez les logs pour confirmer le démarrage
+4. **Persistent Volumes** (IMPORTANT) :
+   Dans l'onglet "Storage" de Coolify, ajoutez :
+   - `/app/data` → Volume: `prospector-data`
+   - `/app/logs` → Volume: `prospector-logs`
 
 ---
 
-## 🎯 Méthode 2 : Déploiement Manuel via SSH (Alternative)
+## 🔍 Vérification Post-Déploiement
 
-Si vous préférez ne pas utiliser Git :
+Après le déploiement, vérifiez que l'application fonctionne :
 
-### Étape 1 : Transférer les fichiers
-
+### 1. Health Check
 ```bash
-# Sur votre machine locale
-scp -r /workspace/* user@votre-vps:/home/user/b2b-prospector/
+curl https://votre-domaine.coolify.app/health
 ```
 
-### Étape 2 : Créer le fichier .env
-
-```bash
-cd /home/user/b2b-prospector
-
-cat > .env << EOF
-POSTGRES_USER=prospector
-POSTGRES_PASSWORD=$(openssl rand -base64 32)
-POSTGRES_DB=prospector_db
-REDIS_PASSWORD=$(openssl rand -base64 32)
-SECRET_KEY=$(openssl rand -base64 48)
-ENVIRONMENT=production
-LOG_LEVEL=INFO
-INSEE_API_KEY=
-PAPPERS_API_KEY=
-OPENAI_API_KEY=
-EOF
-
-chmod 600 .env
+Réponse attendue :
+```json
+{
+  "status": "healthy",
+  "service": "B2B Prospector",
+  "version": "1.0.0",
+  "environment": "production"
+}
 ```
 
-### Étape 3 : Lancer avec Docker Compose
+### 2. API Documentation
+Accédez à : `https://votre-domaine.coolify.app/docs`
 
+### 3. Test Endpoint
 ```bash
-docker compose -f docker-compose.coolify.yml --env-file .env up -d --build
-```
-
-### Étape 4 : Vérifier le statut
-
-```bash
-docker compose -f docker-compose.coolify.yml ps
-docker compose -f docker-compose.coolify.yml logs -f api
+curl -X GET https://votre-domaine.coolify.app/api/v1/prospects/search?q=google
 ```
 
 ---
 
-## 🔧 Configuration Post-Déploiement
+## 🛠️ Commands Utiles
 
-### 1. Initialiser la Base de Données
+### Voir les logs dans Coolify
+- Onglet "Logs" dans le dashboard Coolify
+- OU en SSH : `docker logs -f <container-id>`
 
-Une fois les conteneurs démarrés, exécutez les migrations :
+### Redémarrer le service
+- Bouton "Restart" dans Coolify
+- OU en SSH : `docker restart <container-id>`
 
+### Accéder au container en shell
 ```bash
-# Se connecter au conteneur API
-docker exec -it b2b-prospector-api bash
-
-# Lancer les migrations (si Alembic configuré)
-alembic upgrade head
-
-# Ou initialiser la DB manuellement
-python -c "from app.core.database import init_db; init_db()"
-
-exit
+docker exec -it <container-id> bash
 ```
 
-### 2. Tester l'API
-
-Accédez à l'URL fournie par Coolify (ou http://votre-ip:8000) :
-
-- **Swagger UI** : `https://prospector.votre-domaine.com/docs`
-- **Health Check** : `https://prospector.votre-domaine.com/api/v1/health`
-
-Test rapide avec curl :
-
+### Vérifier les permissions
 ```bash
-curl -X GET https://prospector.votre-domaine.com/api/v1/health
-```
-
-### 3. Activer les Plugins
-
-Par défaut, tous les plugins sont activés. Pour personnaliser :
-
-Dans Coolify → Variables d'environnement :
-```
-ENABLE_PLUGINS=scraper-insee,audit-digital,pain-point-engine,pipeline-kanban
-```
-
-Ou pour TOUS les plugins :
-```
-ENABLE_PLUGINS=all
+docker exec <container-id> ls -la /app/logs
+docker exec <container-id> ls -la /app/data
 ```
 
 ---
 
-## 📊 Monitoring & Maintenance
+## 🐛 Troubleshooting
 
-### Logs en Temps Réel
-
+### Erreur: Logs non écrits
 ```bash
-# Via Coolify UI (recommandé)
-# Ou en CLI :
-docker compose -f docker-compose.coolify.yml logs -f api worker
+# Vérifier permissions
+docker exec <container-id> ls -la /app/
+
+# Devrait afficher :
+# drwxr-xr-x appuser appuser  4096 ... logs
+# drwxr-xr-x appuser appuser  4096 ... data
 ```
 
-### Backup Automatique
+### Erreur: Database non persistante
+Vérifiez que les volumes sont bien configurés dans Coolify :
+- `/app/data` doit être mounté sur un volume persistent
 
-Ajoutez ce cron job pour sauvegarder PostgreSQL quotidiennement :
-
-```bash
-crontab -e
-
-# Ajouter cette ligne (backup à 3h du matin)
-0 3 * * * docker exec b2b-prospector-db pg_dump -U prospector prospector_db > /backups/prospector_$(date +\%Y\%m\%d).sql
-```
-
-### Mise à Jour
-
-```bash
-# Tirer les nouvelles modifications
-git pull origin main
-
-# Rebuild et redémarrer
-docker compose -f docker-compose.coolify.yml up -d --build
-```
+### Erreur: Redis non connecté
+Vérifiez la variable d'environnement `REDIS_HOST=redis`
 
 ---
 
-## 🛠️ Troubleshooting
+## 📊 Next Steps After Deployment
 
-### Problème : Conteneur API ne démarre pas
-
-**Solution** :
-```bash
-docker compose -f docker-compose.coolify.yml logs api
-# Cherchez l'erreur, souvent :
-# - DATABASE_URL incorrect
-# - SECRET_KEY manquante
-# - Port déjà utilisé
-```
-
-### Problème : Connection à PostgreSQL échoue
-
-**Solution** :
-```bash
-# Vérifier que DB est healthy
-docker compose -f docker-compose.coolify.yml ps db
-
-# Tester la connection
-docker exec -it b2b-prospector-db psql -U prospector -d prospector_db -c "SELECT 1;"
-```
-
-### Problème : Migration échoue
-
-**Solution** :
-```bash
-# Reset DB (ATTENTION: efface toutes les données!)
-docker volume rm b2b-prospector_pgdata
-docker compose -f docker-compose.coolify.yml up -d db
-# Puis relancer les migrations
-```
+1. **Configurer un nom de domaine** dans Coolify
+2. **Activer HTTPS/SSL** (automatique avec Let's Encrypt)
+3. **Sauvegarder les volumes** régulièrement
+4. **Configurer les alerts** de monitoring
+5. **Tester tous les endpoints** via `/docs`
 
 ---
 
-## 🎉 Prochaines Étapes
+## 🎯 Checklist de Validation
 
-Une fois déployé :
-
-1. **Créer votre premier prospect** via Swagger UI
-2. **Lancer un audit digital** automatique
-3. **Générer des angles commerciaux**
-4. **Configurer vos séquences d'outreach**
-
-📖 Consultez la documentation complète : `http://votre-url/docs`
+- [ ] Application démarre sans erreur de permission
+- [ ] Logs s'écrivent dans `/app/logs/prospector.log`
+- [ ] Database SQLite persistante dans `/app/data/`
+- [ ] Health check retourne `healthy`
+- [ ] API `/docs` accessible
+- [ ] Redis connecté et fonctionnel
+- [ ] HTTPS activé
+- [ ] Variables d'environnement de production configurées
 
 ---
 
-## 📞 Support
-
-- Documentation technique : `/workspace/README.md`
-- Analyse stratégique : `/workspace/ANALYSIS_COMPLETE.md`
-- Issues GitHub : [Votre Repo]
-
-**Bon déploiement ! 🚀**
+**Support** : Si vous rencontrez d'autres problèmes, consultez les logs dans Coolify et partagez l'erreur complète.
