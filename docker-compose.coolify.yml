@@ -5,7 +5,7 @@ services:
     image: postgres:15-alpine
     environment:
       POSTGRES_USER: prospector
-      POSTGRES_PASSWORD: prospector_password_secure
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-prospector_secret}
       POSTGRES_DB: prospector
     volumes:
       - pg/var/lib/postgresql/data
@@ -34,13 +34,14 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    ports:
-      - "8001:8000"  # CHANGEMENT ICI: Port externe 8001 -> Interne 8000
+    # SUPPRIMEZ LA LIGNE CI-DESSOUS (ports) pour laisser Coolify gérer le réseau
+    # ports:
+    #   - "8000:8000" 
     environment:
       - ENVIRONMENT=production
       - DEBUG=false
       - REDIS_HOST=redis
-      - DATABASE_URL=postgresql://prospector:prospector_password_secure@db:5432/prospector
+      - DATABASE_URL=postgresql://prospector:${POSTGRES_PASSWORD:-prospector_secret}@db:5432/prospector
     volumes:
       - app-logs:/app/logs
       - app-/app/data
@@ -52,6 +53,7 @@ services:
     restart: unless-stopped
     networks:
       - prospector-network
+    # Le container écoute toujours en interne sur le 8000, mais n'expose pas le port à l'hôte directement
     command: >
       sh -c "mkdir -p /app/logs /app/data && 
              chmod 777 /app/logs /app/data &&
