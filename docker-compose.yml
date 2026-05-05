@@ -1,3 +1,4 @@
+--- docker-compose.yml (原始)
 version: '3.8'
 
 services:
@@ -7,14 +8,14 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "8001:8000"
+      - "8000:8000"
     environment:
       - ENVIRONMENT=development
       - DEBUG=true
       - REDIS_HOST=redis
       - DATABASE_URL=sqlite:///./data/prospector.db
     volumes:
-      - ./data:/app/data
+      - .//app/data
       - ./logs:/app/logs
     depends_on:
       - redis
@@ -28,7 +29,7 @@ services:
     ports:
       - "6379:6379"
     volumes:
-      - redis-data:/data
+      - redis-/data
     command: redis-server --appendonly yes
     restart: unless-stopped
     networks:
@@ -40,7 +41,7 @@ services:
     ports:
       - "11434:11434"
     volumes:
-      - ollama-data:/root/.ollama
+      - ollama-/root/.ollama
     profiles:
       - llm
     restart: unless-stopped
@@ -48,8 +49,71 @@ services:
       - prospector-network
 
 volumes:
-  redis-data:
-  ollama-data:
+  redis-
+  ollama-
+
+networks:
+  prospector-network:
+    driver: bridge
+
++++ docker-compose.yml (修改后)
+version: '3.8'
+
+services:
+  # Application principale
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=development
+      - DEBUG=true
+      - REDIS_HOST=redis
+      - DATABASE_URL=sqlite:///./data/prospector.db
+    volumes:
+      - .//app/data
+      - ./logs:/app/logs
+    depends_on:
+      - redis
+    restart: unless-stopped
+    networks:
+      - prospector-network
+    # Ensure proper permissions for logs directory
+    command: >
+      sh -c "mkdir -p /app/logs /app/data &&
+             chown -R appuser:appuser /app/logs /app/data &&
+             uvicorn main:app --host 0.0.0.0 --port 8000"
+
+  # Redis pour l'Event Bus
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+    networks:
+      - prospector-network
+
+  # Optionnel: Ollama pour LLM local (si activé)
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-/root/.ollama
+    profiles:
+      - llm
+    restart: unless-stopped
+    networks:
+      - prospector-network
+
+volumes:
+  redis-
+  ollama-
 
 networks:
   prospector-network:
