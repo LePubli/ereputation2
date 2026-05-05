@@ -1,3 +1,4 @@
+--- .gitignore (原始)
 ```
 # Dependencies
 .venv/
@@ -45,3 +46,6 @@ Thumbs.db
 .env*
 !.env.example
 ```
+
++++ .gitignore (修改后)
+Nothing needs to be added to .gitignore for the given file changes, as they consist only of source/config files (.md, Dockerfile, docker-compose.yml).
