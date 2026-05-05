@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { BarChart, Bar, PieChart, Pie, Cell, ResponsiveContainer, XAxis, YAxis, Tooltip } from 'recharts';
-import { pipelineService, prospectService } from '@/services';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import { pipelineService } from '@/services';
 import { useAppStore } from '@/store/appStore';
 
 const COLORS = ['#3B82F6', '#EAB308', '#F97316', '#A855F7', '#22C55E', '#EF4444'];
@@ -135,7 +135,7 @@ export default function Dashboard() {
                 fill="#8884d8"
                 dataKey="value"
               >
-                {stageData.map((entry, index) => (
+                {stageData.map((_entry, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>

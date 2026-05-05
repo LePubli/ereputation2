@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 
-const stages = [
+export const stages = [
   { id: 'nouveau', label: 'Nouveau', color: 'bg-blue-500' },
   { id: 'contacte', label: 'Contacté', color: 'bg-yellow-500' },
   { id: 'rdv_pris', label: 'RDV pris', color: 'bg-orange-500' },

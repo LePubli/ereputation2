@@ -16,10 +16,18 @@ RUN apk add --no-cache libc6-compat
 # Copie uniquement les manifests pour maximiser le cache Docker
 COPY package.json package-lock.json* ./
 
-# Cache mount BuildKit pour npm (gain x3 sur builds incrémentaux)
+# Cache mount BuildKit pour npm (gain x3 sur builds incrémentaux).
+# Stratégie d'install résiliente :
+#   1. Si lock présent → tente `npm ci` (rapide, déterministe)
+#   2. Si `npm ci` échoue (lock désynchronisé / conflits peer-deps) →
+#      fallback `npm install --legacy-peer-deps` qui régénère un tree cohérent
+#   3. Si pas de lock → directement `npm install`
 RUN --mount=type=cache,target=/root/.npm \
     if [ -f package-lock.json ]; then \
-        npm ci --no-audit --no-fund --prefer-offline; \
+        npm ci --no-audit --no-fund --prefer-offline \
+        || (echo "WARN: npm ci a echoue, fallback sur npm install --legacy-peer-deps" \
+            && rm -rf node_modules \
+            && npm install --no-audit --no-fund --legacy-peer-deps); \
     else \
         npm install --no-audit --no-fund --legacy-peer-deps; \
     fi
@@ -29,7 +37,7 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 # Args injectés par Coolify au build (visibles dans le bundle final)
-# ⚠️ NE JAMAIS injecter de secret runtime ici — le bundle JS est public.
+# /!\ NE JAMAIS injecter de secret runtime ici — le bundle JS est public.
 ARG VITE_API_BASE_URL=/api
 ARG VITE_APP_NAME="B2B Prospector"
 ARG VITE_APP_VERSION=1.0.0
@@ -47,50 +55,42 @@ COPY --from=deps /app/node_modules ./node_modules
 # Copie le code source (le .dockerignore exclut ce qui ne sert pas)
 COPY . .
 
-# Build Vite (tsc + vite build)
+# Build Vite (script 'build' = vite build seul, tsc separe via 'typecheck')
 RUN npm run build && \
-    # Sanity check : on s'assure que le build a bien généré dist/
     test -d /app/dist && test -f /app/dist/index.html
 
 # ----- STAGE 3 : RUNTIME (Nginx Alpine, non-root) ----------------------------
 FROM nginx:1.27-alpine AS production
 
-# Métadonnées OCI (utiles pour Coolify, Trivy, audits)
+# Metadonnees OCI
 LABEL org.opencontainers.image.title="b2b-prospector-frontend" \
       org.opencontainers.image.description="Copilote Commercial B2B - Frontend React/Vite" \
       org.opencontainers.image.vendor="Epok" \
-      org.opencontainers.image.source="https://github.com/epok/ereputation2" \
+      org.opencontainers.image.source="https://github.com/LePubli/ereputation2" \
       org.opencontainers.image.licenses="Proprietary"
 
-# Outils utiles : curl pour healthcheck, tini comme init PID 1, tzdata pour logs
+# Outils : curl pour healthcheck, tini comme init PID 1, tzdata pour logs
 RUN apk add --no-cache curl tini tzdata && \
-    # Nettoyage configuration nginx par défaut
     rm -f /etc/nginx/conf.d/default.conf
 
-# Copie de la conf nginx custom (SPA + proxy API + headers sécurité)
+# Copie de la conf nginx custom (SPA + proxy API + headers securite)
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Copie des assets buildés
+# Copie des assets buildes
 COPY --from=builder --chown=nginx:nginx /app/dist /usr/share/nginx/html
 
-# Préparation pour exécution non-root :
-#  - nginx Alpine écoute par défaut sur 80 (privilégié) → on bascule sur 8080
-#  - on fixe les permissions des dossiers nécessaires à nginx
+# Preparation pour execution non-root (port non privilegie 8080)
 RUN sed -i 's/listen       80;/listen       8080;/g' /etc/nginx/conf.d/default.conf 2>/dev/null || true && \
     chown -R nginx:nginx /usr/share/nginx/html /var/cache/nginx /var/log/nginx /etc/nginx/conf.d && \
     touch /var/run/nginx.pid && \
     chown nginx:nginx /var/run/nginx.pid
 
-# Bascule en utilisateur non-privilégié
 USER nginx
 
-# Port non-privilégié (Coolify route via Traefik/Caddy de toute façon)
 EXPOSE 8080
 
-# Healthcheck : endpoint dédié plutôt que / (évite de servir index.html à chaque check)
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD curl -fsS http://127.0.0.1:8080/healthz || exit 1
 
-# tini = reaper PID 1 → gestion propre des SIGTERM (Coolify graceful shutdown)
 ENTRYPOINT ["/sbin/tini", "--"]
 CMD ["nginx", "-g", "daemon off;"]

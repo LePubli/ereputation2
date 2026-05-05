@@ -32,7 +32,14 @@ export function FileUpload({ onImportComplete }: FileUploadProps) {
       const result = await prospectService.importFromFile(file);
       toast.success(`${result.imported} prospects importés avec succès`);
       if (result.failed > 0) {
-        toast.warning(`${result.failed} échecs lors de l'import`);
+        // toast.warning n'existe pas dans react-hot-toast → on utilise l'API générique
+        toast(`${result.failed} échecs lors de l'import`, {
+          icon: '⚠️',
+          style: {
+            background: '#FEF3C7',
+            color: '#92400E',
+          },
+        });
       }
       onImportComplete?.(result);
     } catch (error) {

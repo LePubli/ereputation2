@@ -5,7 +5,7 @@ import { prospectService } from '@/services';
 import toast from 'react-hot-toast';
 
 export default function Prospects() {
-  const { prospects, loading, error, refresh, search } = useProspects();
+  const { prospects, loading, refresh, search } = useProspects();
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [siretInput, setSiretInput] = useState('');

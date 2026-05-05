@@ -22,5 +22,21 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: true,
+    // Limite indicative au lieu de 500kB (les vendor chunks ont du mal à descendre sous)
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        // Code-splitting par groupe fonctionnel : améliore le cache navigateur
+        // entre déploiements (un changement applicatif n'invalide pas les vendors)
+        manualChunks: {
+          'react-vendor':  ['react', 'react-dom', 'react-router-dom'],
+          'ui-vendor':     ['framer-motion', '@headlessui/react', '@heroicons/react'],
+          'charts':        ['recharts', 'chart.js', 'react-chartjs-2'],
+          'data-vendor':   ['@tanstack/react-query', '@tanstack/react-table', 'zustand'],
+          'utils-vendor':  ['axios', 'date-fns'],
+          'dnd-vendor':    ['@dnd-kit/core', '@dnd-kit/sortable', 'react-dropzone'],
+        },
+      },
+    },
   },
 })
