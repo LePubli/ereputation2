@@ -70,7 +70,6 @@ CMD ["nginx", "-g", "daemon off;"]
         # Start nginx
         CMD ["nginx", "-g", "daemon off;"]
 
-+++ frontend/Dockerfile (修改后)
      1	# Frontend Dockerfile - Production Ready
      2	FROM node:18-alpine AS builder
      3	
