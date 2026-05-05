@@ -1,6 +1,19 @@
 version: '3.8'
 
 services:
+  # Frontend React/Vite
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      - app
+    restart: unless-stopped
+    networks:
+      - prospector-network
+
   # Application principale
   app:
     build:
@@ -14,9 +27,11 @@ services:
       - REDIS_HOST=redis
       - DATABASE_URL=postgresql://prospector:prospector_pass@db:5432/prospector
       - LOG_LEVEL=INFO
+      - CORS_ORIGINS=http://localhost,http://prospect.le-publicitaire.fr
     volumes:
       - app-logs:/app/logs
       - app-data:/app/data
+      - plugins-data:/app/plugins
     depends_on:
       - redis
       - db
@@ -76,6 +91,7 @@ volumes:
   postgres-data:
   app-logs:
   app-data:
+  plugins-data:
 
 networks:
   prospector-network:

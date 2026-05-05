@@ -53,6 +53,9 @@ class Settings(BaseSettings):
     LLM_API_URL: str = "http://localhost:11434"
     LLM_API_KEY: Optional[str] = None
     
+    # CORS
+    CORS_ORIGINS: str = "*"
+
     # Security
     SECRET_KEY: str = "change-me-in-production"
     ALGORITHM: str = "HS256"
