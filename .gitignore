@@ -1,34 +1,26 @@
 ```
 # Dependencies
 node_modules/
-
-# Build outputs
+.venv/
+venv/
+__pycache__/
+*.pyc
+# Build artifacts
 dist/
 build/
-coverage/
-htmlcov/
-
-# Environment variables
+target/
+# Environment
 .env
 .env.local
 .env.*
-
-# IDE files
+# Editors
 .vscode/
 .idea/
 *.swp
 *.swo
-*.tmp
-
-# Python cache
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-
 # Logs
 *.log
-
-# Coverage
-.coverage
+# OS
+.DS_Store
+Thumbs.db
 ```
