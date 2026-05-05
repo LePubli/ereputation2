@@ -1,120 +1,117 @@
---- docker-compose.yml (原始)
-version: '3.8'
+--- .gitignore (原始)
+```
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.py~
+*.py.class
+*.pyc.class
+.Python
+*.so
+*.egg-info/
+.eggs/
+.coverage
+coverage/
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.tox/
+.cover/
 
-services:
-  # Application principale
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    ports:
-      - "8000:8000"
-    environment:
-      - ENVIRONMENT=development
-      - DEBUG=true
-      - REDIS_HOST=redis
-      - DATABASE_URL=sqlite:///./data/prospector.db
-    volumes:
-      - .//app/data
-      - ./logs:/app/logs
-    depends_on:
-      - redis
-    restart: unless-stopped
-    networks:
-      - prospector-network
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-  # Redis pour l'Event Bus
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis-/data
-    command: redis-server --appendonly yes
-    restart: unless-stopped
-    networks:
-      - prospector-network
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.tmp
 
-  # Optionnel: Ollama pour LLM local (si activé)
-  ollama:
-    image: ollama/ollama:latest
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama-/root/.ollama
-    profiles:
-      - llm
-    restart: unless-stopped
-    networks:
-      - prospector-network
+# Logs
+*.log
 
-volumes:
-  redis-
-  ollama-
+# Environment
+.env
+.env.local
+.env.*
+```
 
-networks:
-  prospector-network:
-    driver: bridge
++++ .gitignore (修改后)
+```
+# Environment
+.env
+.env.local
+*.env.*
 
-+++ docker-compose.yml (修改后)
-version: '3.8'
+# Dependencies
+node_modules/
+.venv/
+venv/
+__pycache__/
+.mypy_cache/
+.pytest_cache/
+dist/
+build/
+target/
+.gradle/
 
-services:
-  # Application principale
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    ports:
-      - "8001:8000"
-    environment:
-      - ENVIRONMENT=development
-      - DEBUG=true
-      - REDIS_HOST=redis
-      - DATABASE_URL=sqlite:///./data/prospector.db
-    volumes:
-      - .//app/data
-      - ./logs:/app/logs
-    depends_on:
-      - redis
-    restart: unless-stopped
-    networks:
-      - prospector-network
-    # Ensure proper permissions for logs directory
-    command: >
-      sh -c "mkdir -p /app/logs /app/data &&
-             chown -R appuser:appuser /app/logs /app/data &&
-             uvicorn main:app --host 0.0.0.0 --port 8000"
+# Compiled files
+*.pyc
+*.class
+*.o
+*.exe
+*.dll
+*.so
+*.a
+*.obj
+*.out
 
-  # Redis pour l'Event Bus
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis-/data
-    command: redis-server --appendonly yes
-    restart: unless-stopped
-    networks:
-      - prospector-network
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
 
-  # Optionnel: Ollama pour LLM local (si activé)
-  ollama:
-    image: ollama/ollama:latest
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama-/root/.ollama
-    profiles:
-      - llm
-    restart: unless-stopped
-    networks:
-      - prospector-network
+# Logs and temp files
+*.log
+*.tmp
 
-volumes:
-  redis-
-  ollama-
+# System files
+.DS_Store
+Thumbs.db
 
-networks:
-  prospector-network:
-    driver: bridge
+# Coverage
+coverage/
+htmlcov/
+.coverage
+
+# Compressed files
+*.zip
+*.gz
+*.tar
+*.tgz
+*.bz2
+*.xz
+*.7z
+*.rar
+*.zst
+*.lz4
+*.lzh
+*.cab
+*.arj
+*.rpm
+*.deb
+*.Z
+*.lz
+*.lzo
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.tar.zst
+```
