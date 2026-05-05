@@ -1,4 +1,3 @@
---- frontend/Dockerfile (原始)
 # Frontend Dockerfile - Production Ready
 FROM node:18-alpine AS builder
 
