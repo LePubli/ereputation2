@@ -1,75 +1,59 @@
---- .gitignore (原始)
 ```
+# Docker-related
+Dockerfile
+
 # Dependencies
 node_modules/
-.venv/
 venv/
+.venv/
 __pycache__/
-*.pyc
-# Build artifacts
+*.egg-info/
 dist/
 build/
 target/
-# Environment
-.env
-.env.local
-.env.*
-# Editors
-.vscode/
-.idea/
-*.swp
-*.swo
-# Logs
+
+# Logs and temporary files
 *.log
-# OS
-.DS_Store
-Thumbs.db
-```
-
-+++ .gitignore (修改后)
-```
-# Dependencies
-node_modules/
-venv/
-.venv/
-__pycache__/
-.mypy_cache/
-.pytest_cache/
-target/
-.gradle/
-
-# Build artifacts
-dist/
-build/
-*.pyc
-*.class
-*.o
-*.obj
-*.out
-
-# Editor/IDE files
-.vscode/
-.idea/
-*.swp
-*.swo
 *.tmp
+*.swp
+*.swo
 
-# Logs
-*.log
-
-# Environment
+# Environment variables
 .env
 .env.local
 *.env.*
 
-# System files
+# Editors
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS generated files
 .DS_Store
 Thumbs.db
 
-# Coverage
+# Coverage reports
 coverage/
 htmlcov/
 .coverage
+
+# Python specific
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+
+# Build outputs
+*.class
+*.o
+*.a
+*.obj
+*.out
+*.exe
+*.dll
+*.so
 
 # Compressed files
 *.zip
@@ -90,4 +74,13 @@ htmlcov/
 *.Z
 *.lz
 *.lzo
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.tar.zst
+
+# Caching
+.mypy_cache/
+.pytest_cache/
+.gradle/
 ```
