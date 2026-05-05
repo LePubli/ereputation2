@@ -1,7 +1,6 @@
 version: '3.8'
 
 services:
-  # Base de données PostgreSQL
   db:
     image: postgres:15-alpine
     environment:
@@ -9,7 +8,7 @@ services:
       POSTGRES_PASSWORD: prospector_password_secure
       POSTGRES_DB: prospector
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pg/var/lib/postgresql/data
     networks:
       - prospector-network
     healthcheck:
@@ -18,12 +17,11 @@ services:
       timeout: 5s
       retries: 5
 
-  # Redis pour l'Event Bus
   redis:
     image: redis:7-alpine
     command: redis-server --appendonly yes
     volumes:
-      - redis-data:/data
+      - redis-/data
     networks:
       - prospector-network
     healthcheck:
@@ -32,22 +30,20 @@ services:
       timeout: 5s
       retries: 3
 
-  # Application Principale
   app:
     build:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "8000:8000"
+      - "8001:8000"  # CHANGEMENT ICI: Port externe 8001 -> Interne 8000
     environment:
       - ENVIRONMENT=production
       - DEBUG=false
       - REDIS_HOST=redis
       - DATABASE_URL=postgresql://prospector:prospector_password_secure@db:5432/prospector
     volumes:
-      # Utilisation de volumes nommés pour éviter les problèmes de permissions Linux
       - app-logs:/app/logs
-      - app-data:/app/data
+      - app-/app/data
     depends_on:
       db:
         condition: service_healthy
@@ -67,12 +63,11 @@ services:
       retries: 3
       start_period: 40s
 
-# Définition des volumes nommés (gérés par Docker, pas par l'hôte directement)
 volumes:
-  pgdata:
-  redis-data:
+  pg
+  redis-
   app-logs:
-  app-data:
+  app-
 
 networks:
   prospector-network:
