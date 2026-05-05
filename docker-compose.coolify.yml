@@ -84,30 +84,31 @@ services:
     # pour éviter les conflits. Coolify assignera un port interne.
 
   # -----------------------------------------------------------
-  # WORKER: Background Tasks (Celery/RQ simulation)
+  # WORKER: Background Tasks (Optionnel - Commenté par défaut)
   # -----------------------------------------------------------
-  worker:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: b2b-prospector-worker
-    restart: always
-    command: python -m app.workers.run_worker --concurrency 4
-    depends_on:
-      - db
-      - redis
-      - api
-    environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-prospector}:${POSTGRES_PASSWORD:-change_me_strong_password}@db:5432/${POSTGRES_DB:-prospector_db}
-      REDIS_URL: redis://:${REDIS_PASSWORD:-change_me_strong_redis}@redis:6379/0
-      ENVIRONMENT: production
-      SECRET_KEY: ${SECRET_KEY:-change_me_super_secret_key_min_32_chars}
-      ENABLE_PLUGINS: ${ENABLE_PLUGINS:-all}
-    volumes:
-      - ./logs:/app/logs
-      - ./data/uploads:/app/data/uploads
-    networks:
-      - prospector-network
+  # Le worker est optionnel pour Coolify. Décommentez si vous avez implémenté le module app.workers.run_worker
+  # worker:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   container_name: b2b-prospector-worker
+  #   restart: always
+  #   command: python -m app.workers.run_worker --concurrency 4
+  #   depends_on:
+  #     - db
+  #     - redis
+  #     - api
+  #   environment:
+  #     DATABASE_URL: postgresql://${POSTGRES_USER:-prospector}:${POSTGRES_PASSWORD:-change_me_strong_password}@db:5432/${POSTGRES_DB:-prospector_db}
+  #     REDIS_URL: redis://:${REDIS_PASSWORD:-change_me_strong_redis}@redis:6379/0
+  #     ENVIRONMENT: production
+  #     SECRET_KEY: ${SECRET_KEY:-change_me_super_secret_key_min_32_chars}
+  #     ENABLE_PLUGINS: ${ENABLE_PLUGINS:-all}
+  #   volumes:
+  #     - ./logs:/app/logs
+  #     - ./data/uploads:/app/data/uploads
+  #   networks:
+  #     - prospector-network
 
 networks:
   prospector-network:
