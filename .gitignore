@@ -1,98 +1,51 @@
-# Dependencies
-node_modules/
+```
+# Compiled and build artifacts
+*.pyc
+__pycache__/
+*.o
+*.obj
+*.so
+*.dll
+*.exe
+*.class
+*.out
 
-# Build outputs
+# Dependencies
+.venv/
+venv/
+node_modules/
+.mypy_cache/
+.pytest_cache/
+.coverage
 dist/
 build/
+target/
+.gradle/
+
+# Logs and temp files
+*.log
+*.tmp
+*.swp
+*.swo
+
+# Environment
+.env
+.env.local
+*.env.*
+
+# Editors
+.vscode/
+.idea/
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Coverage
 coverage/
 htmlcov/
 
-# Environment variables
-.env
-.env.local
-.env.*
-
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-env/
-venv/
-.venv/
-pip-log.txt
-pip-delete-this-directory.txt
-.tox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.log
-*.pot
-*.pyc
-*.pyo
-*.pyd
-.MF
-.TemporaryItems
-.Trashes
-*
-!
-*/*
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-iTunes_Control.db
-.idea/
-.vscode/
-*.swp
-*.swo
-*~
-.pytest_cache/
-.mypy_cache/
-.hypothesis/
-
-# Node.js
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-node_modules/
-dist/
-build/
-.nyc_output
-coverage/
-*.log
-.env
-.env.local
-.env.*
-!/.env.example
-
-# Vite specific
-!.vite/
-.vite/
-.svelte-kit/
-.output/
-
-# General
-.DS_Store
-Thumbs.db
-*.tmp
-*.temp
-*.log
-*.swp
-*~
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-iTunes_Control.db
+# Compressed files
 *.zip
 *.gz
 *.tar
@@ -115,3 +68,4 @@ iTunes_Control.db
 *.tar.bz2
 *.tar.xz
 *.tar.zst
+```
