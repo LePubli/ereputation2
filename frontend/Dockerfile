@@ -91,9 +91,9 @@ RUN rm -rf /var/cache/nginx && \
     chown -R nginx:nginx /var/run/nginx && \
     chown -R nginx:nginx /var/log/nginx && \
     chown nginx:nginx /etc/nginx/conf.d/default.conf && \
-    chmod -R 777 /var/cache/nginx && \
-    chmod 777 /var/run/nginx && \
-    chmod 777 /var/log/nginx
+    chmod -R 755 /var/cache/nginx && \
+    chmod 755 /var/run/nginx && \
+    chmod 755 /var/log/nginx
 
 USER nginx
 
