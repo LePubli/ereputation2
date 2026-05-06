@@ -330,12 +330,12 @@ async def on_prospect_created(event: Dict[str, Any]) -> None:
 
 
 # Handlers API
-async def get_pipeline() -> Dict[str, Any]:
+def get_pipeline() -> Dict[str, Any]:
     """Handler GET /api/v1/pipeline"""
     return plugin_instance.get_pipeline_view()
 
 
-async def change_stage(prospect_id: str, request_data: Dict[str, Any]) -> Dict[str, Any]:
+def change_stage(prospect_id: str, request_data: Dict[str, Any]) -> Dict[str, Any]:
     """Handler PATCH /api/v1/pipeline/{prospect_id}/stage"""
     new_stage = request_data.get("stage")
     
@@ -359,12 +359,12 @@ async def change_stage(prospect_id: str, request_data: Dict[str, Any]) -> Dict[s
         return {"error": str(e), "status_code": 400}
 
 
-async def get_metrics() -> Dict[str, Any]:
+def get_metrics() -> Dict[str, Any]:
     """Handler GET /api/v1/pipeline/metrics"""
     return plugin_instance.get_metrics()
 
 
-async def add_interaction(prospect_id: str, request_data: Dict[str, Any]) -> Dict[str, Any]:
+def add_interaction(prospect_id: str, request_data: Dict[str, Any]) -> Dict[str, Any]:
     """Handler POST /api/v1/pipeline/{prospect_id}/interactions"""
     interaction_type = request_data.get("type")
     content = request_data.get("content")
@@ -390,7 +390,7 @@ async def add_interaction(prospect_id: str, request_data: Dict[str, Any]) -> Dic
     }
 
 
-async def get_alerts() -> Dict[str, Any]:
+def get_alerts() -> Dict[str, Any]:
     """Handler GET /api/v1/pipeline/alerts"""
     alerts = plugin_instance.get_alerts()
     
