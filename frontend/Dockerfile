@@ -79,10 +79,9 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 # Copie des assets buildes
 COPY --from=builder --chown=nginx:nginx /app/dist /usr/share/nginx/html
 
-# Preparation pour execution non-root (port non privilegie 8080)
-RUN sed -i 's/listen       80;/listen       8080;/g' /etc/nginx/conf.d/default.conf 2>/dev/null || true
-RUN mkdir -p /var/cache/nginx/client_temp /var/cache/nginx/proxy_temp /var/cache/nginx/fastcgi_temp /var/cache/nginx/uwsgi_temp /var/cache/nginx/scgi_temp
-RUN chown -R nginx:nginx /usr/share/nginx/html /var/cache/nginx /var/log/nginx /etc/nginx/conf.d
+# Preparation pour execution non-root (port 8080 deja configure dans nginx.conf)
+RUN mkdir -p /var/cache/nginx/client_temp /var/cache/nginx/proxy_temp /var/cache/nginx/fastcgi_temp /var/cache/nginx/uwsgi_temp /var/cache/nginx/scgi_temp && \
+    chown -R nginx:nginx /usr/share/nginx/html /var/cache/nginx /var/log/nginx /etc/nginx/conf.d /var/run
 
 USER nginx
 
