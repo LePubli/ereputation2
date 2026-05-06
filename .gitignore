@@ -15,12 +15,12 @@ build/
 *.pyc
 *.class
 *.o
-*.obj
-*.out
 *.exe
 *.dll
 *.so
 *.a
+*.obj
+*.out
 
 # Editor/IDE files
 .vscode/
@@ -29,15 +29,15 @@ build/
 *.swo
 *.tmp
 
-# Logs
-*.log
-
 # System files
 .DS_Store
 Thumbs.db
 .env
 .env.local
 *.env.*
+
+# Logs
+*.log
 
 # Coverage
 coverage/
