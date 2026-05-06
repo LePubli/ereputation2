@@ -64,18 +64,43 @@ RUN rm -rf /app/dist
 RUN echo "===> Build for cachebust=${CACHEBUST}" && \
     echo "===> Node version: $(node -v)" && \
     echo "===> NPM version: $(npm -v)" && \
+    echo "===> Mémoire disponible:" && free -m 2>/dev/null || cat /proc/meminfo | head -5 && \
+    echo "===> Espace disque:" && df -h / && \
     echo "===> Contenu du dossier /app:" && ls -la /app/ && \
     echo "===> Démarrage du build Vite..." && \
     echo "===> Variables d'environnement Vite:" && \
     env | grep VITE_ && \
-    if ! npm run build 2>&1 | tee /tmp/build.log; then \
+    echo "===> Toutes les variables d'environnement:" && \
+    env | sort && \
+    echo "===> Exécution de npm run build avec NODE_OPTIONS=--max-old-space-size=4096" && \
+    export NODE_OPTIONS="--max-old-space-size=4096" && \
+    echo "=== DEBUT OUTPUT NPM RUN BUILD ===" && \
+    if ! npm run build > /tmp/build_stdout.log 2> /tmp/build_stderr.log; then \
         BUILD_EXIT=$?; \
-        echo "ERREUR: npm run build a échoué avec code $BUILD_EXIT !" && \
-        echo "=== Début des logs d'erreur ===" && \
-        cat /tmp/build.log && \
-        echo "=== Fin des logs d'erreur ===" && \
+        echo "" && \
+        echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" && \
+        echo "ERREUR CRITIQUE: npm run build a échoué avec code $BUILD_EXIT !" && \
+        echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" && \
+        echo "" && \
+        echo "=== STDOUT (sortie standard) ===" && \
+        cat /tmp/build_stdout.log && \
+        echo "" && \
+        echo "=== STDERR (sortie d'erreur) ===" && \
+        cat /tmp/build_stderr.log && \
+        echo "" && \
+        echo "=== Informations complémentaires ===" && \
+        echo "Contenu de node_modules (premiers 30):" && \
+        ls node_modules 2>/dev/null | head -30 && \
+        echo "" && \
+        echo "Package.json:" && \
+        cat package.json && \
+        echo "" && \
+        echo "Espace disque après échec:" && df -h / && \
+        echo "" && \
+        echo "Mémoire après échec:" && free -m 2>/dev/null || cat /proc/meminfo | head -5 && \
         exit $BUILD_EXIT; \
     fi && \
+    echo "=== FIN OUTPUT NPM RUN BUILD ===" && \
     echo "===> Vérification des artifacts..." && \
     if [ ! -d /app/dist ]; then \
         echo "ERREUR: le dossier dist/ n'existe pas !" && \
