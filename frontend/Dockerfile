@@ -79,9 +79,22 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 # Copie des assets buildes
 COPY --from=builder --chown=nginx:nginx /app/dist /usr/share/nginx/html
 
-# Preparation pour execution non-root (port 8080 deja configure dans nginx.conf)
-RUN mkdir -p /var/cache/nginx/client_temp /var/cache/nginx/proxy_temp /var/cache/nginx/fastcgi_temp /var/cache/nginx/uwsgi_temp /var/cache/nginx/scgi_temp /var/run/nginx && \
-    chown -R nginx:nginx /usr/share/nginx/html /var/cache/nginx /var/log/nginx /etc/nginx/conf.d /var/run/nginx
+# Preparation pour execution non-root
+# Creer tous les repertoires necessaires et donner les permissions
+RUN mkdir -p /var/cache/nginx/client_temp /var/cache/nginx/proxy_temp /var/cache/nginx/fastcgi_temp /var/cache/nginx/uwsgi_temp /var/cache/nginx/scgi_temp /var/run/nginx /var/log/nginx && \
+    chown -R nginx:nginx /usr/share/nginx/html /var/cache/nginx /var/log/nginx /etc/nginx/conf.d /var/run/nginx && \
+    chmod -R 755 /var/cache/nginx /var/run/nginx /var/log/nginx
+
+# Script d'entree pour initialiser les repertoires avant demarrage
+COPY <<EOF /docker-entrypoint.sh
+#!/bin/sh
+set -e
+mkdir -p /var/cache/nginx/client_temp /var/cache/nginx/proxy_temp /var/cache/nginx/fastcgi_temp /var/cache/nginx/uwsgi_temp /var/cache/nginx/scgi_temp /var/run/nginx
+chown -R nginx:nginx /var/cache/nginx /var/run/nginx /var/log/nginx 2>/dev/null || true
+exec "\$@"
+EOF
+
+RUN chmod +x /docker-entrypoint.sh
 
 USER nginx
 
@@ -90,5 +103,5 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD curl -fsS http://127.0.0.1:8080/healthz || exit 1
 
-ENTRYPOINT ["/sbin/tini", "--"]
-CMD ["nginx", "-g", "daemon off;"]
+ENTRYPOINT ["/docker-entrypoint.sh"]
+CMD ["/sbin/tini", "--", "nginx", "-g", "daemon off;"]
