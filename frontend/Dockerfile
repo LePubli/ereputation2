@@ -62,18 +62,22 @@ RUN rm -rf /app/dist
 
 # Build Vite + sanity checks renforcés
 RUN echo "===> Build for cachebust=${CACHEBUST}" && \
-    npm run build 2>&1 && \
+    echo "===> Démarrage du build Vite..." && \
+    if ! npm run build 2>&1 | tee /tmp/build.log; then \
+        echo "ERREUR: npm run build a échoué !" && \
+        echo "=== Début des logs d'erreur ===" && \
+        cat /tmp/build.log && \
+        echo "=== Fin des logs d'erreur ===" && \
+        exit 1; \
+    fi && \
     echo "===> Vérification des artifacts..." && \
-    test -d /app/dist || (echo "ERREUR: le dossier dist/ n'existe pas !" && exit 1) && \
-    test -f /app/dist/index.html || (echo "ERREUR: dist/index.html n'existe pas !" && exit 1) && \
-    # Vérifie que index.html contient bien les balises <script> injectées par Vite
-    # (sinon le HTML est resté à la version source, l'app ne démarrera pas)
+    test -d /app/dist || (echo "ERREUR: le dossier dist/ n'existe pas !" && ls -la /app/ && exit 1) && \
+    test -f /app/dist/index.html || (echo "ERREUR: dist/index.html n'existe pas !" && ls -la /app/dist/ && exit 1) && \
     grep -q '<script type="module" crossorigin src="/assets/' /app/dist/index.html \
         || (echo "ERREUR: dist/index.html ne contient pas les scripts buildés !" && \
             echo "--- contenu de dist/index.html ---" && \
             cat /app/dist/index.html && \
             exit 1) && \
-    # Affiche les hash des assets pour faciliter le diagnostic
     echo "===> Build artifacts:" && \
     ls -la /app/dist/ && \
     echo "===> Assets:" && \
