@@ -15,7 +15,8 @@
 FROM node:20-alpine AS deps
 WORKDIR /app
 
-RUN apk add --no-cache libc6-compat
+RUN apk add --no-cache libc6-compat && \
+    rm -rf /var/cache/apk/*
 
 COPY package.json package-lock.json* ./
 
@@ -27,7 +28,9 @@ RUN --mount=type=cache,target=/root/.npm \
             && npm install --no-audit --no-fund --legacy-peer-deps); \
     else \
         npm install --no-audit --no-fund --legacy-peer-deps; \
-    fi
+    fi && \
+    # Nettoyage post-install pour réduire la taille
+    rm -rf /root/.npm/_cacache
 
 # ----- STAGE 2 : BUILDER (compilation Vite) ----------------------------------
 FROM node:20-alpine AS builder
@@ -59,8 +62,10 @@ RUN rm -rf /app/dist
 
 # Build Vite + sanity checks renforcés
 RUN echo "===> Build for cachebust=${CACHEBUST}" && \
-    npm run build && \
-    test -d /app/dist && test -f /app/dist/index.html && \
+    npm run build 2>&1 && \
+    echo "===> Vérification des artifacts..." && \
+    test -d /app/dist || (echo "ERREUR: le dossier dist/ n'existe pas !" && exit 1) && \
+    test -f /app/dist/index.html || (echo "ERREUR: dist/index.html n'existe pas !" && exit 1) && \
     # Vérifie que index.html contient bien les balises <script> injectées par Vite
     # (sinon le HTML est resté à la version source, l'app ne démarrera pas)
     grep -q '<script type="module" crossorigin src="/assets/' /app/dist/index.html \
