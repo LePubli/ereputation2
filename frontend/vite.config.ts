@@ -5,6 +5,7 @@ import path from 'path'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
+  base: '/',
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
@@ -28,14 +29,7 @@ export default defineConfig({
       output: {
         // Code-splitting par groupe fonctionnel : améliore le cache navigateur
         // entre déploiements (un changement applicatif n'invalide pas les vendors)
-        manualChunks: {
-          'react-vendor':  ['react', 'react-dom', 'react-router-dom'],
-          'ui-vendor':     ['framer-motion', '@headlessui/react', '@heroicons/react'],
-          'charts':        ['recharts', 'chart.js', 'react-chartjs-2'],
-          'data-vendor':   ['@tanstack/react-query', '@tanstack/react-table', 'zustand'],
-          'utils-vendor':  ['axios', 'date-fns'],
-          'dnd-vendor':    ['@dnd-kit/core', '@dnd-kit/sortable', 'react-dropzone'],
-        },
+        manualChunks: undefined, // Désactivé pour éviter les problèmes de chargement
       },
     },
   },
