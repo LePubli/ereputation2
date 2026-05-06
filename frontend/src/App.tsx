@@ -9,6 +9,7 @@ import Prospects from './pages/Prospects';
 import Plugins from './pages/Plugins';
 import Settings from './pages/Settings';
 import ProspectDetail from './pages/ProspectDetail';
+import Analytics from './pages/Analytics';
 
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -53,6 +54,7 @@ function App() {
                 <Route path="/pipeline" element={<Pipeline />} />
                 <Route path="/prospects" element={<Prospects />} />
                 <Route path="/prospects/:id" element={<ProspectDetail />} />
+                <Route path="/analytics" element={<Analytics />} />
                 <Route path="/plugins" element={<Plugins />} />
                 <Route path="/settings" element={<Settings />} />
               </Routes>
