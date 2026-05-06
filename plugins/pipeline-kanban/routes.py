@@ -41,7 +41,7 @@ async def pipeline_alerts() -> Dict[str, Any]:
 @router.patch("/{prospect_id}/stage")
 async def update_prospect_stage(prospect_id: str, request_data: Dict[str, Any]) -> Dict[str, Any]:
     """Change l'étape d'un prospect"""
-    result = await kanban_main.change_stage(prospect_id, request_data)
+    result = kanban_main.change_stage(prospect_id, request_data)
     
     if "error" in result:
         status_code = result.get("status_code", 400)
@@ -53,7 +53,7 @@ async def update_prospect_stage(prospect_id: str, request_data: Dict[str, Any]) 
 @router.post("/{prospect_id}/interactions")
 async def create_interaction(prospect_id: str, request_data: Dict[str, Any]) -> Dict[str, Any]:
     """Ajoute une interaction à un prospect"""
-    result = await kanban_main.add_interaction(prospect_id, request_data)
+    result = kanban_main.add_interaction(prospect_id, request_data)
     
     if "error" in result:
         status_code = result.get("status_code", 400)
@@ -66,7 +66,7 @@ async def create_interaction(prospect_id: str, request_data: Dict[str, Any]) -> 
 @router.get("/prospects")
 async def list_prospects() -> Dict[str, Any]:
     """Liste tous les prospects"""
-    pipeline_view = await kanban_main.get_pipeline()
+    pipeline_view = kanban_main.get_pipeline()
     all_prospects = []
     
     for column in pipeline_view["columns"]:
