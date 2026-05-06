@@ -20,7 +20,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        # ⚠️ Les ARG injectés ici sont visibles dans le bundle JS public.
+        # /!\ Les ARG injectés ici sont visibles dans le bundle JS public.
         # N'y mettez JAMAIS de secret. Pour les vrais secrets → service "app".
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
         VITE_APP_NAME: ${VITE_APP_NAME:-B2B Prospector}
@@ -35,7 +35,6 @@ services:
       - prospector
     expose:
       - "8080"
-    # Coolify s'occupe du routing HTTPS — labels Traefik (au cas où Coolify utilise Traefik)
     labels:
       - "coolify.managed=true"
       - "traefik.enable=true"
@@ -61,11 +60,19 @@ services:
         max-file: "5"
     security_opt:
       - no-new-privileges:true
+    # ------------------------------------------------------------------
+    # FIX read-only + non-root nginx :
+    #  - read_only: true     → tout le filesystem est read-only, sécurité max
+    #  - tmpfs: /tmp         → seul chemin writable (le nginx.conf redirige
+    #                          tous les *_temp_path et le pid vers /tmp/nginx)
+    #
+    # NE PAS ajouter de tmpfs sur /var/cache/nginx ni /var/run :
+    #    cela écraserait les répertoires créés au build avec leurs permissions
+    #    correctes, et nginx (uid 101 non-root) ne pourrait plus y écrire.
+    # ------------------------------------------------------------------
     read_only: true
     tmpfs:
-      - /tmp:rw,noexec,nosuid,size=64m
-      - /var/cache/nginx:rw,noexec,nosuid,size=64m
-      - /var/run:rw,noexec,nosuid,size=8m
+      - /tmp:rw,nosuid,nodev,size=64m
 
   # --------------------------------------------------------------------------
   # APP — Backend FastAPI / Uvicorn
@@ -90,7 +97,7 @@ services:
       ALGORITHM: ${ALGORITHM:-HS256}
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
 
-      # --- CORS (le frontend est sur même origine, mais utile pour mobile/extension) ---
+      # --- CORS ---
       CORS_ORIGINS: ${CORS_ORIGINS:-https://prospect.le-publicitaire.fr}
 
       # --- Database ---
@@ -177,18 +184,16 @@ services:
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - postgres-data:/var/lib/postgresql/data
-      # Si vous avez des scripts d'init, montez-les ici :
-      # - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     networks:
       - prospector
     expose:
       - "5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-prospector} -d ${POSTGRES_DB:-prospector}"]
-      interval: 10s
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-prospector} -d ${POSTGRES_DB:-prospector} -q"]
+      interval: 30s    # ← passé de 10s à 30s : suffisant pour la santé, divise les logs par 3
       timeout: 5s
       retries: 5
-      start_period: 10s
+      start_period: 20s
     command:
       - "postgres"
       - "-c"
@@ -196,11 +201,13 @@ services:
       - "-c"
       - "shared_buffers=256MB"
       - "-c"
-      - "log_min_duration_statement=1000"   # Log slow queries > 1s
+      - "log_min_duration_statement=1000"   # log slow queries > 1s
+      # ----- FIX bruit logs : pg_isready loggait connection/auth/disconnect
+      # toutes les 10s. On désactive pour la prod ; à réactiver en debug.
       - "-c"
-      - "log_connections=on"
+      - "log_connections=off"
       - "-c"
-      - "log_disconnections=on"
+      - "log_disconnections=off"
     deploy:
       resources:
         limits:
@@ -238,7 +245,7 @@ services:
       - "6379"
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "--no-auth-warning", "ping"]
-      interval: 10s
+      interval: 30s    # ← idem db : moins de bruit
       timeout: 5s
       retries: 3
       start_period: 5s
@@ -261,7 +268,7 @@ services:
   ollama:
     image: ollama/ollama:latest
     restart: unless-stopped
-    profiles: ["llm"]      # Activer avec : docker compose --profile llm up
+    profiles: ["llm"]
     volumes:
       - ollama-data:/root/.ollama
     networks:
