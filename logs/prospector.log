@@ -1,0 +1,76 @@
+2026-05-06 17:32:45 | INFO     | core.config:setup_logging:109 - Logging configured - Level: INFO
+2026-05-06 17:32:48 | INFO     | core.config:setup_logging:109 - Logging configured - Level: INFO
+2026-05-06 17:32:52 | INFO     | core.config:setup_logging:109 - Logging configured - Level: INFO
+2026-05-06 17:33:24 | INFO     | core.config:setup_logging:109 - Logging configured - Level: INFO
+2026-05-06 17:33:29 | INFO     | core.config:setup_logging:109 - Logging configured - Level: INFO
+2026-05-06 17:33:29 | INFO     | core.plugin_manager:discover:90 - Discovered plugin: pipeline-kanban v1.0.0
+2026-05-06 17:33:29 | INFO     | core.plugin_manager:discover:90 - Discovered plugin: pain-point-engine v1.0.0
+2026-05-06 17:33:29 | INFO     | core.plugin_manager:discover:90 - Discovered plugin: audit-digital v1.0.0
+2026-05-06 17:33:29 | INFO     | core.plugin_manager:discover:90 - Discovered plugin: semantic-analyzer v1.0.0
+2026-05-06 17:33:29 | INFO     | core.plugin_manager:discover:90 - Discovered plugin: compliance-guard v1.0.0
+2026-05-06 17:33:29 | INFO     | core.plugin_manager:discover:90 - Discovered plugin: ab-testing v1.0.0
+2026-05-06 17:33:29 | INFO     | core.plugin_manager:discover:90 - Discovered plugin: scraper-insee v1.0.0
+2026-05-06 17:33:29 | INFO     | core.plugin_manager:discover:90 - Discovered plugin: predictive-scorer v1.0.0
+2026-05-06 17:33:29 | INFO     | core.plugin_manager:discover:90 - Discovered plugin: outreach-multichannel v1.0.0
+2026-05-06 17:33:29 | INFO     | core.plugin_manager:discover:90 - Discovered plugin: voice-assistant v1.0.0
+2026-05-06 17:33:29 | INFO     | core.plugin_manager:discover:90 - Discovered plugin: automation-engine v1.0.0
+2026-05-06 17:33:29 | INFO     | core.plugin_manager:discover:95 - Discovered 11 plugins
+2026-05-06 17:33:29 | INFO     | plugins.scraper-insee:init:313 - Initializing scraper-insee plugin
+2026-05-06 17:33:29 | INFO     | core.plugin_manager:load:176 - Loaded plugin: scraper-insee
+2026-05-06 17:33:29 | INFO     | core.plugin_manager:enable:222 - Enabled plugin: scraper-insee
+2026-05-06 17:33:30 | INFO     | plugins.audit-digital:init:459 - Digital Audit plugin initialized
+2026-05-06 17:33:30 | INFO     | core.plugin_manager:load:176 - Loaded plugin: audit-digital
+2026-05-06 17:33:30 | INFO     | core.plugin_manager:enable:222 - Enabled plugin: audit-digital
+2026-05-06 17:33:30 | INFO     | plugins.pain-point-engine:load_rules:51 - Loaded 15 rules from /workspace/plugins/pain-point-engine/rules.yaml
+2026-05-06 17:33:30 | INFO     | plugins.pain-point-engine:init:279 - Initializing pain-point-engine plugin
+2026-05-06 17:33:30 | INFO     | core.plugin_manager:load:176 - Loaded plugin: pain-point-engine
+2026-05-06 17:33:30 | INFO     | core.plugin_manager:enable:222 - Enabled plugin: pain-point-engine
+2026-05-06 17:33:30 | INFO     | plugins.pipeline-kanban:init:302 - Initializing pipeline-kanban plugin
+2026-05-06 17:33:30 | INFO     | core.plugin_manager:load:176 - Loaded plugin: pipeline-kanban
+2026-05-06 17:33:30 | INFO     | core.plugin_manager:enable:222 - Enabled plugin: pipeline-kanban
+2026-05-06 17:33:30 | INFO     | core.plugin_manager:initialize_all:261 - Initialized 4/4 configured plugins
+2026-05-06 17:33:30 | ERROR    | main:load_plugin_routes:59 - Failed to load routes from pipeline-kanban: cannot import name 'get_pipeline' from 'main' (/workspace/main.py)
+2026-05-06 17:33:30 | ERROR    | main:load_plugin_routes:59 - Failed to load routes from pain-point-engine: cannot import name 'generate_angles' from 'main' (/workspace/main.py)
+2026-05-06 17:33:30 | INFO     | main:load_plugin_routes:74 - Loaded routes from audit-digital/main.py
+2026-05-06 17:33:30 | ERROR    | main:load_plugin_routes:59 - Failed to load routes from scraper-insee: cannot import name 'create_prospect' from 'main' (/workspace/main.py)
+2026-05-06 17:34:09 | INFO     | core.config:setup_logging:109 - Logging configured - Level: INFO
+2026-05-06 17:34:09 | INFO     | core.plugin_manager:discover:90 - Discovered plugin: pipeline-kanban v1.0.0
+2026-05-06 17:34:09 | INFO     | core.plugin_manager:discover:90 - Discovered plugin: pain-point-engine v1.0.0
+2026-05-06 17:34:09 | INFO     | core.plugin_manager:discover:90 - Discovered plugin: audit-digital v1.0.0
+2026-05-06 17:34:09 | INFO     | core.plugin_manager:discover:90 - Discovered plugin: semantic-analyzer v1.0.0
+2026-05-06 17:34:09 | INFO     | core.plugin_manager:discover:90 - Discovered plugin: compliance-guard v1.0.0
+2026-05-06 17:34:09 | INFO     | core.plugin_manager:discover:90 - Discovered plugin: ab-testing v1.0.0
+2026-05-06 17:34:09 | INFO     | core.plugin_manager:discover:90 - Discovered plugin: scraper-insee v1.0.0
+2026-05-06 17:34:09 | INFO     | core.plugin_manager:discover:90 - Discovered plugin: predictive-scorer v1.0.0
+2026-05-06 17:34:09 | INFO     | core.plugin_manager:discover:90 - Discovered plugin: outreach-multichannel v1.0.0
+2026-05-06 17:34:09 | INFO     | core.plugin_manager:discover:90 - Discovered plugin: voice-assistant v1.0.0
+2026-05-06 17:34:09 | INFO     | core.plugin_manager:discover:90 - Discovered plugin: automation-engine v1.0.0
+2026-05-06 17:34:09 | INFO     | core.plugin_manager:discover:95 - Discovered 11 plugins
+2026-05-06 17:34:10 | INFO     | plugins.scraper-insee:init:313 - Initializing scraper-insee plugin
+2026-05-06 17:34:10 | INFO     | core.plugin_manager:load:176 - Loaded plugin: scraper-insee
+2026-05-06 17:34:10 | INFO     | core.plugin_manager:enable:222 - Enabled plugin: scraper-insee
+2026-05-06 17:34:10 | INFO     | plugins.audit-digital:init:459 - Digital Audit plugin initialized
+2026-05-06 17:34:10 | INFO     | core.plugin_manager:load:176 - Loaded plugin: audit-digital
+2026-05-06 17:34:10 | INFO     | core.plugin_manager:enable:222 - Enabled plugin: audit-digital
+2026-05-06 17:34:10 | INFO     | plugins.pain-point-engine:load_rules:51 - Loaded 15 rules from /workspace/plugins/pain-point-engine/rules.yaml
+2026-05-06 17:34:10 | INFO     | plugins.pain-point-engine:init:279 - Initializing pain-point-engine plugin
+2026-05-06 17:34:10 | INFO     | core.plugin_manager:load:176 - Loaded plugin: pain-point-engine
+2026-05-06 17:34:10 | INFO     | core.plugin_manager:enable:222 - Enabled plugin: pain-point-engine
+2026-05-06 17:34:10 | INFO     | plugins.pipeline-kanban:init:302 - Initializing pipeline-kanban plugin
+2026-05-06 17:34:10 | INFO     | core.plugin_manager:load:176 - Loaded plugin: pipeline-kanban
+2026-05-06 17:34:10 | INFO     | core.plugin_manager:enable:222 - Enabled plugin: pipeline-kanban
+2026-05-06 17:34:10 | INFO     | core.plugin_manager:initialize_all:261 - Initialized 4/4 configured plugins
+2026-05-06 17:34:10 | INFO     | main:load_plugin_routes:57 - Loaded routes from pipeline-kanban/routes.py
+2026-05-06 17:34:10 | INFO     | pain_point_engine_main:load_rules:51 - Loaded 15 rules from /workspace/plugins/pain-point-engine/rules.yaml
+2026-05-06 17:34:10 | INFO     | main:load_plugin_routes:57 - Loaded routes from pain-point-engine/routes.py
+2026-05-06 17:34:10 | INFO     | main:load_plugin_routes:74 - Loaded routes from audit-digital/main.py
+2026-05-06 17:34:10 | INFO     | main:load_plugin_routes:57 - Loaded routes from scraper-insee/routes.py
+2026-05-06 17:43:30 | INFO     | core.config:setup_logging:109 - Logging configured - Level: INFO
+2026-05-06 17:50:34 | INFO     | core.config:setup_logging:109 - Logging configured - Level: INFO
+2026-05-06 17:50:43 | INFO     | core.config:setup_logging:109 - Logging configured - Level: INFO
+2026-05-06 17:50:52 | INFO     | core.config:setup_logging:109 - Logging configured - Level: INFO
+2026-05-06 17:50:52 | INFO     | main:load_plugin_routes:57 - Loaded routes from pipeline-kanban/routes.py
+2026-05-06 17:50:52 | INFO     | pain_point_engine_main:load_rules:51 - Loaded 15 rules from /workspace/plugins/pain-point-engine/rules.yaml
+2026-05-06 17:50:52 | INFO     | main:load_plugin_routes:57 - Loaded routes from pain-point-engine/routes.py
+2026-05-06 17:50:52 | INFO     | main:load_plugin_routes:57 - Loaded routes from audit-digital/routes.py
+2026-05-06 17:50:52 | INFO     | main:load_plugin_routes:57 - Loaded routes from scraper-insee/routes.py
