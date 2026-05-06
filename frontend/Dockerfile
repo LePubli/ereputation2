@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 ###############################################################################
-# B2B Prospector — Frontend Dockerfile (Production-Ready)
+# B2B Prospector — Frontend Dockerfile (Production-Ready) — v5
 # Stack : React 18 + Vite 5 + TypeScript + Tailwind + Nginx
 # Build : multi-stage, BuildKit, layer caching, non-root user
 # Cible : Coolify (Docker 29.x) sur Ubuntu 24 LTS
@@ -19,10 +19,6 @@ RUN apk add --no-cache libc6-compat
 
 COPY package.json package-lock.json* ./
 
-# Stratégie d'install résiliente :
-#   1. lock présent → tente `npm ci` (rapide, déterministe)
-#   2. `npm ci` échoue (lock désync / peer-deps) → fallback `npm install --legacy-peer-deps`
-#   3. pas de lock → directement `npm install`
 RUN --mount=type=cache,target=/root/.npm \
     if [ -f package-lock.json ]; then \
         npm ci --no-audit --no-fund --prefer-offline \
@@ -42,6 +38,11 @@ ARG VITE_APP_NAME="B2B Prospector"
 ARG VITE_APP_VERSION=1.0.0
 ARG VITE_SENTRY_DSN=""
 
+# Cache-buster : valeur unique injectée par Coolify (commit SHA, build timestamp...)
+# Force le rebuild même si rien d'autre n'a changé. Coolify l'injecte automatiquement
+# via COOLIFY_BUILD_SECRETS_HASH ou un argument équivalent.
+ARG CACHEBUST=1
+
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL} \
     VITE_APP_NAME=${VITE_APP_NAME} \
     VITE_APP_VERSION=${VITE_APP_VERSION} \
@@ -49,10 +50,29 @@ ENV VITE_API_BASE_URL=${VITE_API_BASE_URL} \
     NODE_ENV=production
 
 COPY --from=deps /app/node_modules ./node_modules
-COPY . .
 
-RUN npm run build && \
-    test -d /app/dist && test -f /app/dist/index.html
+# IMPORTANT : on supprime tout dist/ éventuellement présent dans le contexte
+# avant de copier, puis on supprime aussi un dist/ qui aurait été copié, pour
+# forcer un build neuf (évite les builds Coolify qui réutilisent un vieux dist/).
+COPY . .
+RUN rm -rf /app/dist
+
+# Build Vite + sanity checks renforcés
+RUN echo "===> Build for cachebust=${CACHEBUST}" && \
+    npm run build && \
+    test -d /app/dist && test -f /app/dist/index.html && \
+    # Vérifie que index.html contient bien les balises <script> injectées par Vite
+    # (sinon le HTML est resté à la version source, l'app ne démarrera pas)
+    grep -q '<script type="module" crossorigin src="/assets/' /app/dist/index.html \
+        || (echo "ERREUR: dist/index.html ne contient pas les scripts buildés !" && \
+            echo "--- contenu de dist/index.html ---" && \
+            cat /app/dist/index.html && \
+            exit 1) && \
+    # Affiche les hash des assets pour faciliter le diagnostic
+    echo "===> Build artifacts:" && \
+    ls -la /app/dist/ && \
+    echo "===> Assets:" && \
+    ls -la /app/dist/assets/ | head -20
 
 # ----- STAGE 3 : RUNTIME (Nginx Alpine, non-root) ----------------------------
 FROM nginx:1.27-alpine AS production
@@ -63,22 +83,17 @@ LABEL org.opencontainers.image.title="b2b-prospector-frontend" \
       org.opencontainers.image.source="https://github.com/LePubli/ereputation2" \
       org.opencontainers.image.licenses="Proprietary"
 
-# Outils runtime : curl pour healthcheck, tini pour PID 1, tzdata pour logs
 RUN apk add --no-cache curl tini tzdata
 
-# ---- REMPLACEMENT COMPLET du nginx.conf ------------------------------------
-# La conf custom redirige les `*_temp_path` et le `pid` vers /tmp/nginx
-# pour rester compatible avec un filesystem read-only en runtime.
+# Remplacement complet du nginx.conf principal
 RUN rm -f /etc/nginx/nginx.conf /etc/nginx/conf.d/default.conf
 COPY nginx.conf /etc/nginx/nginx.conf
 
-# Assets buildés
+# Copie des assets buildés (NB : si dist/ contient un dossier public/ avec
+# vite.svg, etc., il est aussi copié → résoud le 404 sur /vite.svg)
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# ---- Préparation runtime non-root + read-only-friendly --------------------
-# /tmp/nginx est créé au build avec les bonnes permissions, mais nginx
-# le recréera de toute façon à chaque démarrage si /tmp est un tmpfs.
-# On crée aussi un wrapper d'entrée qui s'assure que la structure existe.
+# Préparation /tmp/nginx pour mode non-root + read-only
 RUN mkdir -p /tmp/nginx \
              /tmp/nginx/client_temp \
              /tmp/nginx/proxy_temp \
@@ -88,9 +103,6 @@ RUN mkdir -p /tmp/nginx \
     chown -R nginx:nginx /tmp/nginx /usr/share/nginx/html && \
     chmod -R 755 /tmp/nginx
 
-# ---- Wrapper qui (re)crée /tmp/nginx au démarrage si tmpfs vide -----------
-# Coolify monte tmpfs:/tmp → vide à chaque restart. Sans ce script, nginx
-# planterait sur le 1er démarrage avec read_only:true.
 COPY --chmod=755 docker-entrypoint.sh /docker-entrypoint.sh
 
 USER nginx
