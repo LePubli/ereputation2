@@ -1,0 +1,9 @@
+name: system
+display_name: System
+version: 1.0.0
+description: System health, info, and plugin management
+author: B2B Prospector Team
+active: true
+routes: routes.py
+dependencies: []
+config: {}
