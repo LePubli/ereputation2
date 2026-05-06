@@ -93,7 +93,10 @@ RUN rm -rf /var/cache/nginx && \
     chown nginx:nginx /etc/nginx/conf.d/default.conf && \
     chmod -R 755 /var/cache/nginx && \
     chmod 755 /var/run/nginx && \
-    chmod 755 /var/log/nginx
+    chmod 755 /var/log/nginx && \
+    touch /var/run/nginx/nginx.pid && \
+    chown nginx:nginx /var/run/nginx/nginx.pid && \
+    chmod 644 /var/run/nginx/nginx.pid
 
 USER nginx
 
