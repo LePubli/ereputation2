@@ -60,20 +60,39 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN rm -rf /app/dist
 
-# Build Vite + sanity checks renforcés
+# Build Vite + sanity checks renforcés avec debug complet
 RUN echo "===> Build for cachebust=${CACHEBUST}" && \
-    npm run build 2>&1 && \
+    echo "===> Node version: $(node -v)" && \
+    echo "===> NPM version: $(npm -v)" && \
+    echo "===> Contenu du dossier /app:" && ls -la /app/ && \
+    echo "===> Démarrage du build Vite..." && \
+    echo "===> Variables d'environnement Vite:" && \
+    env | grep VITE_ && \
+    if ! npm run build 2>&1 | tee /tmp/build.log; then \
+        BUILD_EXIT=$?; \
+        echo "ERREUR: npm run build a échoué avec code $BUILD_EXIT !" && \
+        echo "=== Début des logs d'erreur ===" && \
+        cat /tmp/build.log && \
+        echo "=== Fin des logs d'erreur ===" && \
+        exit $BUILD_EXIT; \
+    fi && \
     echo "===> Vérification des artifacts..." && \
-    test -d /app/dist || (echo "ERREUR: le dossier dist/ n'existe pas !" && exit 1) && \
-    test -f /app/dist/index.html || (echo "ERREUR: dist/index.html n'existe pas !" && exit 1) && \
-    # Vérifie que index.html contient bien les balises <script> injectées par Vite
-    # (sinon le HTML est resté à la version source, l'app ne démarrera pas)
-    grep -q '<script type="module" crossorigin src="/assets/' /app/dist/index.html \
-        || (echo "ERREUR: dist/index.html ne contient pas les scripts buildés !" && \
-            echo "--- contenu de dist/index.html ---" && \
-            cat /app/dist/index.html && \
-            exit 1) && \
-    # Affiche les hash des assets pour faciliter le diagnostic
+    if [ ! -d /app/dist ]; then \
+        echo "ERREUR: le dossier dist/ n'existe pas !" && \
+        echo "Contenu de /app:" && ls -la /app/ && \
+        exit 1; \
+    fi && \
+    if [ ! -f /app/dist/index.html ]; then \
+        echo "ERREUR: dist/index.html n'existe pas !" && \
+        echo "Contenu de /app/dist:" && ls -la /app/dist/ && \
+        exit 1; \
+    fi && \
+    if ! grep -q '<script type="module" crossorigin src="/assets/' /app/dist/index.html; then \
+        echo "ERREUR: dist/index.html ne contient pas les scripts buildés !" && \
+        echo "--- contenu de dist/index.html ---" && \
+        cat /app/dist/index.html && \
+        exit 1; \
+    fi && \
     echo "===> Build artifacts:" && \
     ls -la /app/dist/ && \
     echo "===> Assets:" && \
