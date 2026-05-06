@@ -4,3 +4,4 @@ export { default as Prospects } from './Prospects';
 export { default as Plugins } from './Plugins';
 export { default as Settings } from './Settings';
 export { default as ProspectDetail } from './ProspectDetail';
+export { default as Analytics } from './Analytics';

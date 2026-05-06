@@ -5,13 +5,15 @@ import {
   ChartBarIcon, 
   CubeIcon, 
   Cog6ToothIcon,
-  UserGroupIcon
+  UserGroupIcon,
+  LightBulbIcon
 } from '@heroicons/react/24/outline';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: HomeIcon },
   { name: 'Pipeline Kanban', href: '/pipeline', icon: ChartBarIcon },
   { name: 'Prospects', href: '/prospects', icon: UserGroupIcon },
+  { name: 'Analytics', href: '/analytics', icon: LightBulbIcon },
   { name: 'Plugins', href: '/plugins', icon: CubeIcon },
   { name: 'Paramètres', href: '/settings', icon: Cog6ToothIcon },
 ];
