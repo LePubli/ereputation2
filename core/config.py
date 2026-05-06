@@ -1,115 +1,102 @@
 """
-Configuration centrale de l'application B2B Prospector
-Gère les variables d'environnement, settings et constantes globales
+Configuration centralisée — chargée depuis .env.
+
+Usage :
+    from core.config import settings
+    settings.DATABASE_URL  # ...
 """
-import os
-from pathlib import Path
-from typing import List, Optional
-from pydantic_settings import BaseSettings
-from loguru import logger
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    """Configuration globale de l'application"""
-    
-    # Application
+    """Variables d'environnement de l'application."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=True,
+        extra="ignore",
+    )
+
+    # --- Application ---
     APP_NAME: str = "B2B Prospector"
-    APP_VERSION: str = "1.0.0"
+    APP_VERSION: str = "1.1.0"
+    APP_ENV: str = "production"
     DEBUG: bool = False
-    ENVIRONMENT: str = "development"  # development, staging, production
-    
-    # API
-    API_PREFIX: str = "/api/v1"
+    LOG_LEVEL: str = "INFO"
+
+    # --- API ---
     API_HOST: str = "0.0.0.0"
     API_PORT: int = 8000
-    
-    # Database (SQLite pour MVP, PostgreSQL en prod)
-    DATABASE_URL: str = "sqlite:///./data/prospector.db"
-    DATABASE_POOL_SIZE: int = 10
-    
-    # Redis (Event Bus)
-    REDIS_HOST: str = "localhost"
-    REDIS_PORT: int = 6379
-    REDIS_DB: int = 0
-    REDIS_PASSWORD: Optional[str] = None
-    
-    # Plugins
-    PLUGINS_DIR: Path = Path(__file__).parent.parent / "plugins"
-    ACTIVE_PLUGINS: List[str] = [
-        "scraper-insee",
-        "audit-digital",
-        "pain-point-engine",
-        "pipeline-kanban"
-    ]
-    
-    # External APIs
-    INSEE_API_KEY: Optional[str] = None
-    INSEE_API_SECRET: Optional[str] = None
-    PAPPERS_API_KEY: Optional[str] = None
-    
-    # LLM (optionnel, pour formatting uniquement)
-    LLM_PROVIDER: str = "ollama"  # ollama, openai, anthropic
-    LLM_MODEL: str = "llama3.1:8b"
-    LLM_API_URL: str = "http://localhost:11434"
-    LLM_API_KEY: Optional[str] = None
-    
-    # CORS
-    CORS_ORIGINS: str = "*"
+    API_PREFIX: str = "/api/v1"
 
-    # Security
+    # --- Sécurité ---
     SECRET_KEY: str = "change-me-in-production"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
-    
-    # RGPD
-    DATA_RETENTION_DAYS: int = 365
-    ALLOW_B2B_ONLY: bool = True
-    
-    # Logging
-    LOG_LEVEL: str = "INFO"
-    LOG_FILE: str = "logs/prospector.log"
-    LOG_ROTATION: str = "10 MB"
-    LOG_RETENTION: str = "7 days"
-    
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
+
+    # --- CORS ---
+    CORS_ORIGINS: str = "https://prospect.le-publicitaire.fr,http://localhost:3000"
+
+    @property
+    def cors_origins_list(self) -> list[str]:
+        return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
+
+    # --- DB ---
+    POSTGRES_USER: str = "prospector"
+    POSTGRES_PASSWORD: str = "prospector"
+    POSTGRES_DB: str = "prospector"
+    POSTGRES_HOST: str = "db"
+    POSTGRES_PORT: int = 5432
+    DATABASE_URL: str = "postgresql+asyncpg://prospector:prospector@db:5432/prospector"
+    DATABASE_URL_SYNC: str = "postgresql://prospector:prospector@db:5432/prospector"
+
+    # --- Redis ---
+    REDIS_HOST: str = "redis"
+    REDIS_PORT: int = 6379
+    REDIS_PASSWORD: str = ""
+    REDIS_URL: str = "redis://redis:6379/0"
+
+    # --- Plugins ---
+    PLUGINS_DIR: str = "/app/plugins"
+    PLUGINS_AUTO_DISCOVER: bool = True
+
+    # --- Scrapers ---
+    SCRAPER_USER_AGENT: str = "Mozilla/5.0 (compatible; B2BProspector/1.1)"
+    SCRAPER_TIMEOUT: int = 30
+    SCRAPER_RATE_LIMIT_PER_MINUTE: int = 20
+    SCRAPER_CACHE_TTL_HOURS: int = 24
+    SCRAPER_RETRY_ATTEMPTS: int = 3
+
+    INSEE_RECHERCHE_API: str = "https://recherche-entreprises.api.gouv.fr/search"
+    BODACC_API: str = "https://bodacc-datadila.opendatasoft.com/api/explore/v2.1/catalog/datasets/annonces-commerciales/records"
+    PAPPERS_BASE_URL: str = "https://www.pappers.fr"
+    PAGES_JAUNES_BASE_URL: str = "https://www.pagesjaunes.fr"
+    GOOGLE_MAPS_BASE_URL: str = "https://www.google.com/maps"
+
+    # --- Playwright ---
+    PLAYWRIGHT_HEADLESS: bool = True
+    PLAYWRIGHT_NAV_TIMEOUT: int = 20000
+
+    # --- SMTP PlanetHoster ---
+    SMTP_HOST: str = "mail.le-publicitaire.fr"
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM_EMAIL: str = "noreply@le-publicitaire.fr"
+    SMTP_FROM_NAME: str = "B2B Prospector"
+    SMTP_USE_TLS: bool = True
+
+    # --- Admin ---
+    ADMIN_EMAIL: str = "admin@le-publicitaire.fr"
+    ADMIN_PASSWORD: str = "Admin1234!"
+    ADMIN_FULL_NAME: str = "Administrateur"
+
+    # --- Sentry ---
+    SENTRY_DSN: str = ""
+    SENTRY_ENVIRONMENT: str = "production"
 
 
-# Instance globale des settings
 settings = Settings()
-
-
-def setup_logging():
-    """Configure le logging structuré avec Loguru"""
-    log_path = Path(settings.LOG_FILE)
-    log_path.parent.mkdir(parents=True, exist_ok=True)
-    
-    # Configuration Loguru
-    logger.remove()  # Retire le handler par défaut
-    
-    # Console handler
-    logger.add(
-        sink=lambda msg: print(msg, end=""),
-        level=settings.LOG_LEVEL,
-        format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
-        colorize=True
-    )
-    
-    # File handler
-    logger.add(
-        log_path,
-        level=settings.LOG_LEVEL,
-        rotation=settings.LOG_ROTATION,
-        retention=settings.LOG_RETENTION,
-        format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
-        serialize=False
-    )
-    
-    logger.info(f"Logging configured - Level: {settings.LOG_LEVEL}")
-    return logger
-
-
-def get_settings() -> Settings:
-    """Retourne l'instance des settings"""
-    return settings

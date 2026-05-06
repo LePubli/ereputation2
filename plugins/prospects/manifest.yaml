@@ -1,0 +1,14 @@
+name: prospects
+version: 1.1.0
+description: Gestion CRUD des prospects + ajout par SIRET + import CSV/XLSX
+active: true
+dependencies: []
+endpoints:
+  - GET /api/v1/prospects
+  - POST /api/v1/prospects
+  - POST /api/v1/prospects/by-siret
+  - POST /api/v1/prospects/import
+  - GET /api/v1/prospects/{id}
+  - PATCH /api/v1/prospects/{id}
+  - DELETE /api/v1/prospects/{id}
+  - POST /api/v1/prospects/{id}/enrich

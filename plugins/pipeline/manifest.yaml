@@ -1,0 +1,11 @@
+name: pipeline
+version: 1.1.0
+description: Pipeline Kanban — étapes commerciales et drag-n-drop
+active: true
+dependencies: []
+endpoints:
+  - GET /api/v1/pipeline/board
+  - GET /api/v1/pipeline/stages
+  - POST /api/v1/pipeline/stages
+  - PATCH /api/v1/pipeline/stages/{id}
+  - DELETE /api/v1/pipeline/stages/{id}

@@ -1,46 +1,30 @@
-import { useState, useEffect } from 'react';
-import { pluginService } from '@/services';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { pluginsApi } from '../api/plugins';
+import { systemApi } from '../api/system';
 
-export function usePlugins() {
-  const [plugins, setPlugins] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+export const usePlugins = () =>
+  useQuery({
+    queryKey: ['plugins'],
+    queryFn: () => pluginsApi.list(),
+    staleTime: 60_000,
+  });
 
-  const fetchPlugins = async () => {
-    try {
-      setLoading(true);
-      const data = await pluginService.list();
-      setPlugins(data);
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erreur lors du chargement des plugins');
-    } finally {
-      setLoading(false);
-    }
-  };
+export const useTogglePlugin = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) => pluginsApi.toggle(name),
+    onSuccess: (data) => {
+      toast.success(data.message);
+      qc.invalidateQueries({ queryKey: ['plugins'] });
+      qc.invalidateQueries({ queryKey: ['system-info'] });
+    },
+  });
+};
 
-  const togglePlugin = async (pluginName: string, enable: boolean) => {
-    try {
-      if (enable) {
-        await pluginService.enable(pluginName);
-      } else {
-        await pluginService.disable(pluginName);
-      }
-      await fetchPlugins();
-    } catch (err) {
-      throw err;
-    }
-  };
-
-  useEffect(() => {
-    fetchPlugins();
-  }, []);
-
-  return {
-    plugins,
-    loading,
-    error,
-    refresh: fetchPlugins,
-    togglePlugin,
-  };
-}
+export const useSystemInfo = () =>
+  useQuery({
+    queryKey: ['system-info'],
+    queryFn: () => systemApi.info(),
+    staleTime: 30_000,
+  });
