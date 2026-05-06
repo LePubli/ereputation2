@@ -41,7 +41,7 @@ ARG VITE_APP_NAME="B2B Prospector"
 ARG VITE_APP_VERSION=1.0.0
 ARG VITE_SENTRY_DSN=""
 
-# Cache-buster : valeur unique injectée par Coolify (commit SHA, build timestamp...)
+# Cache-buster : valeur unique injectée par Coolify (commit SHA, build timestamp...))
 # Force le rebuild même si rien d'autre n'a changé. Coolify l'injecte automatiquement
 # via COOLIFY_BUILD_SECRETS_HASH ou un argument équivalent.
 ARG CACHEBUST=1
@@ -54,11 +54,14 @@ ENV VITE_API_BASE_URL=${VITE_API_BASE_URL} \
 
 COPY --from=deps /app/node_modules ./node_modules
 
-# IMPORTANT : on supprime tout dist/ éventuellement présent dans le contexte
-# avant de copier, puis on supprime aussi un dist/ qui aurait été copié, pour
-# forcer un build neuf (évite les builds Coolify qui réutilisent un vieux dist/).
+# IMPORTANT : Nettoyage agressif pour éviter les conflits de cache BuildKit
+# On supprime dist AVANT de copier le reste du code source
+RUN rm -rf /app/dist 2>/dev/null || true
+
 COPY . .
-RUN rm -rf /app/dist
+
+# Second nettoyage après copie pour garantir un état propre
+RUN rm -rf /app/dist 2>/dev/null || true
 
 # Build Vite + sanity checks renforcés avec debug complet
 RUN echo "===> Build for cachebust=${CACHEBUST}" && \
