@@ -396,7 +396,7 @@ def create_plugin() -> DigitalAuditPlugin:
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-router = APIRouter(prefix="/api/v1/audit/digital", tags=["Digital Audit"])
+router = APIRouter(prefix="/api/v1/audit", tags=["Digital Audit"])
 
 
 class AuditRequest(BaseModel):
