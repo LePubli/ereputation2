@@ -5,10 +5,15 @@ Usage :
     from core.config import settings
     settings.DATABASE_URL  # ...
 """
+
 import sys
 from pathlib import Path
 
 from loguru import logger
+=======
+from pathlib import Path
+
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
