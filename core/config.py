@@ -6,7 +6,6 @@ Usage :
     settings.DATABASE_URL  # ...
 """
 
-=======
 
 
 import sys
@@ -14,8 +13,6 @@ from pathlib import Path
 
 from loguru import logger
 
-=======
-=======
 from pathlib import Path
 
 
@@ -76,12 +73,17 @@ class Settings(BaseSettings):
     EVENT_BUS_CHANNEL: str = "prospector.events"
 
     EVENT_BUS_CONNECT_TIMEOUT: float = 5.0
-=======
 
 
     # --- Plugins ---
     PLUGINS_DIR: Path = Path("plugins")
     PLUGINS_AUTO_DISCOVER: bool = True
+    ACTIVE_PLUGINS: str = ""
+
+    @property
+    def active_plugins_list(self) -> list[str]:
+        """Return active plugins from comma-separated env configuration."""
+        return [p.strip() for p in self.ACTIVE_PLUGINS.split(",") if p.strip()]
 
     ACTIVE_PLUGINS: str = ""
 
@@ -161,7 +163,6 @@ def setup_logging() -> None:
             )
         except Exception as exc:
             logger.warning(f"File logging disabled: {exc}")
-=======
         logger.add(
             log_dir / "app.log",
             level=settings.LOG_LEVEL,

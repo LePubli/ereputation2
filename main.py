@@ -83,11 +83,68 @@ def load_plugin_routes(app: FastAPI) -> int:
     return routes_count
 
 
+async def start_runtime_services(app: FastAPI) -> None:
+    """Start optional runtime services without blocking the HTTP health endpoint."""
+    listener_task = None
+    app.state.event_bus_listener_task = None
+
+    try:
+        connected = await asyncio.wait_for(
+            event_bus.connect(),
+            timeout=settings.EVENT_BUS_CONNECT_TIMEOUT + 1,
+        )
+        if connected:
+            listener_task = asyncio.create_task(event_bus.listen())
+            app.state.event_bus_listener_task = listener_task
+        else:
+            logger.warning("EventBus started in degraded in-memory mode")
+    except Exception as exc:
+        logger.warning(f"EventBus startup skipped: {exc}")
+
+    try:
+        discovered = plugin_manager.discover()
+        logger.info(f"Discovered plugins: {discovered}")
+
+        loaded = plugin_manager.initialize_all()
+        logger.info(f"Loaded {loaded} plugins")
+
+        routes_count = load_plugin_routes(app)
+        logger.info(f"Loaded {routes_count} plugin routes")
+    except Exception as exc:
+        logger.exception(f"Plugin startup skipped to keep API healthy: {exc}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator:
     """Gestion du cycle de vie de l'application"""
-    # Startup
     logger.info(f"🚀 Starting {settings.APP_NAME} v{settings.APP_VERSION}")
+
+    # Do not block Uvicorn readiness on Redis/plugin imports. Coolify marks the
+    # service unhealthy if /health is not reachable quickly, so optional runtime
+    # services are initialized in the background after the core API is serving.
+    startup_task = asyncio.create_task(start_runtime_services(app))
+    app.state.runtime_startup_task = startup_task
+
+    try:
+        yield
+    finally:
+        logger.info("Shutting down...")
+
+        startup_task.cancel()
+        try:
+            await startup_task
+        except asyncio.CancelledError:
+            pass
+
+        listener_task = getattr(app.state, "event_bus_listener_task", None)
+        if listener_task:
+            listener_task.cancel()
+            try:
+                await listener_task
+            except asyncio.CancelledError:
+                pass
+
+        await event_bus.disconnect()
     
     listener_task = None
 
