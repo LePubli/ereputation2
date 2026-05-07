@@ -34,7 +34,10 @@ class EventBus:
                 port=settings.REDIS_PORT,
                 db=settings.REDIS_DB,
                 password=settings.REDIS_PASSWORD,
-                decode_responses=True
+                decode_responses=True,
+                socket_connect_timeout=settings.EVENT_BUS_CONNECT_TIMEOUT,
+                socket_timeout=settings.EVENT_BUS_CONNECT_TIMEOUT,
+                health_check_interval=30,
             )
             self.redis = redis.Redis(connection_pool=self._connection_pool)
             self.redis_client = self.redis

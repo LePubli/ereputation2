@@ -255,14 +255,16 @@ class PluginManager:
         """
         loaded_count = 0
         
-        for plugin_name in settings.ACTIVE_PLUGINS:
+        active_plugins = settings.active_plugins_list
+
+        for plugin_name in active_plugins:
             if plugin_name in self.plugins:
                 if self.enable(plugin_name):
                     loaded_count += 1
             else:
                 logger.warning(f"Plugin {plugin_name} in ACTIVE_PLUGINS but not discovered")
         
-        logger.info(f"Initialized {loaded_count}/{len(settings.ACTIVE_PLUGINS)} configured plugins")
+        logger.info(f"Initialized {loaded_count}/{len(active_plugins)} configured plugins")
         return loaded_count
 
 

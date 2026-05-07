@@ -149,11 +149,19 @@ services:
     expose:
       - "8000"
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/health"]
+      # Use a raw socket check instead of curl so proxy-related env vars injected
+      # by deployment platforms cannot break localhost healthchecks.
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import socket,sys; s=socket.create_connection(('127.0.0.1',8000),5); s.sendall(b'GET /health HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n'); data=s.recv(128); s.close(); sys.exit(0 if b' 200 ' in data else 1)",
+        ]
       interval: 30s
       timeout: 10s
-      retries: 3
-      start_period: 40s
+      retries: 5
+      start_period: 120s
     deploy:
       resources:
         limits:
