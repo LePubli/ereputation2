@@ -5,7 +5,8 @@ Usage :
     from core.config import settings
     settings.DATABASE_URL  # ...
 """
-from pydantic import Field
+from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -57,11 +58,14 @@ class Settings(BaseSettings):
     REDIS_HOST: str = "redis"
     REDIS_PORT: int = 6379
     REDIS_PASSWORD: str = ""
+    REDIS_DB: int = 0
     REDIS_URL: str = "redis://redis:6379/0"
+    EVENT_BUS_CHANNEL: str = "prospector.events"
 
     # --- Plugins ---
-    PLUGINS_DIR: str = "/app/plugins"
+    PLUGINS_DIR: Path = Path("plugins")
     PLUGINS_AUTO_DISCOVER: bool = True
+    ACTIVE_PLUGINS: list[str] = []
 
     # --- Scrapers ---
     SCRAPER_USER_AGENT: str = "Mozilla/5.0 (compatible; B2BProspector/1.1)"
@@ -70,6 +74,9 @@ class Settings(BaseSettings):
     SCRAPER_CACHE_TTL_HOURS: int = 24
     SCRAPER_RETRY_ATTEMPTS: int = 3
 
+    INSEE_API_KEY: str = ""
+    INSEE_API_SECRET: str = ""
+    PAPPERS_API_KEY: str = ""
     INSEE_RECHERCHE_API: str = "https://recherche-entreprises.api.gouv.fr/search"
     BODACC_API: str = "https://bodacc-datadila.opendatasoft.com/api/explore/v2.1/catalog/datasets/annonces-commerciales/records"
     PAPPERS_BASE_URL: str = "https://www.pappers.fr"

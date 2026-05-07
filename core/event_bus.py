@@ -20,6 +20,7 @@ class EventBus:
     
     def __init__(self):
         self.redis: Optional[redis.Redis] = None
+        self.redis_client: Optional[redis.Redis] = None
         self.pubsub: Optional[redis.client.PubSub] = None
         self.handlers: Dict[str, List[Callable]] = {}
         self.running: bool = False
@@ -36,6 +37,7 @@ class EventBus:
                 decode_responses=True
             )
             self.redis = redis.Redis(connection_pool=self._connection_pool)
+            self.redis_client = self.redis
             
             # Test de connexion
             await self.redis.ping()
@@ -45,6 +47,7 @@ class EventBus:
         except Exception as e:
             logger.warning(f"Redis not available, using in-memory fallback: {e}")
             self.redis = None
+            self.redis_client = None
             return False
     
     async def disconnect(self):
@@ -54,6 +57,7 @@ class EventBus:
             await self.pubsub.close()
         if self.redis:
             await self.redis.close()
+            self.redis_client = None
         if self._connection_pool:
             await self._connection_pool.disconnect()
         logger.info("EventBus disconnected")
@@ -87,20 +91,13 @@ class EventBus:
         Returns:
             bool: True si publié avec succès
         """
-        event = {
-            "type": event_type,
-            "payload": payload,
-            "version": version,
-            "timestamp": datetime.utcnow().isoformat(),
-            "source": "b2b-prospector"
-        }
-        
+        event = self._format_event(event_type, payload, version)
         event_json = json.dumps(event)
         
         try:
             if self.redis:
                 # Publication via Redis
-                await self.redis.publish(f"events:{event_type}", event_json)
+                await self.redis.publish(settings.EVENT_BUS_CHANNEL, event_json)
                 logger.debug(f"Published event {event_type} to Redis")
             else:
                 # Fallback in-memory: appel direct des handlers
@@ -112,6 +109,17 @@ class EventBus:
             logger.error(f"Failed to publish event {event_type}: {e}")
             return False
     
+
+    def _format_event(self, event_type: str, payload: Dict[str, Any], version: str = "1.0") -> Dict[str, Any]:
+        """Formate un événement avec les métadonnées communes."""
+        return {
+            "type": event_type,
+            "payload": payload,
+            "version": version,
+            "timestamp": datetime.utcnow().isoformat(),
+            "source": "b2b-prospector",
+        }
+
     async def _dispatch_event(self, event: Dict[str, Any]) -> None:
         """Dispatch un événement aux handlers locaux"""
         event_type = event.get("type", "")
@@ -154,7 +162,7 @@ class EventBus:
             self.pubsub = self.redis.pubsub()
             
             # S'abonner à tous les événements
-            await self.pubsub.psubscribe("events:*")
+            await self.pubsub.subscribe(settings.EVENT_BUS_CHANNEL)
             
             logger.info("EventBus listening to Redis events")
             self.running = True
@@ -166,14 +174,8 @@ class EventBus:
                         timeout=1.0
                     )
                     
-                    if message and message["type"] == "pmessage":
-                        channel = message["channel"]
+                    if message and message["type"] == "message":
                         data = json.loads(message["data"])
-                        
-                        # Extraire le type d'événement du channel
-                        event_type = channel.replace("events:", "")
-                        data["type"] = event_type
-                        
                         await self._dispatch_event(data)
                         
                 except asyncio.CancelledError:
