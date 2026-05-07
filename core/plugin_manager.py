@@ -18,7 +18,7 @@ class PluginInfo:
     name: str
     version: str
     description: str
-    author: str
+    author: str = ""
     active: bool = False
     dependencies: List[str] = field(default_factory=list)
     endpoints: List[Dict[str, Any]] = field(default_factory=list)
@@ -54,7 +54,7 @@ class PluginManager:
     def __init__(self):
         self.plugins: Dict[str, PluginInfo] = {}
         self.loaded_modules: Dict[str, Any] = {}
-        self.plugins_dir = settings.PLUGINS_DIR
+        self.plugins_dir = Path(settings.PLUGINS_DIR)
         
     def discover(self) -> List[str]:
         """
@@ -120,6 +120,10 @@ class PluginManager:
         
         return True
     
+    def _check_dependencies(self, plugin_name: str) -> bool:
+        """Alias rétrocompatible pour validate_dependencies."""
+        return self.validate_dependencies(plugin_name)
+
     def load(self, plugin_name: str) -> bool:
         """
         Charge un plugin spécifique
