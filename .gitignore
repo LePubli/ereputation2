@@ -1,7 +1,17 @@
+# Docker/runtime internals
+.dockerenv
+
 ```
 # Dependencies
 node_modules/
+frontend/node_modules/
 
+# Build artifacts
+dist/
+build/
+target/
+frontend/dist/
+frontend/.vite/
 # Environment
 .env
 .env.local
@@ -10,14 +20,25 @@ node_modules/
 # Logs and temp files
 *.log
 *.tmp
+logs/
+data/
 
+# Environment / secrets
+.env
+.env.local
+*.env.*
+!.env.example
+
+# Editors / OS
 # Editors
 .vscode/
 .idea/
+.DS_Store
+Thumbs.db
 
 # Python
 __pycache__/
-*.pyc
+*.py[cod]
 *.pyo
 *.pyd
 .Python
@@ -37,6 +58,17 @@ build/
 .coverage
 htmlcov/
 .coverage.*
+.cache
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+nosetests.xml
+coverage.xml
+*.cover
+htmlcov/
+
+# Git internals from submodules/worktrees
+.git/modules/
 .nyc_output/
 coverage/
 

@@ -5,6 +5,7 @@ Usage :
     from core.config import settings
     settings.DATABASE_URL  # ...
 """
+import json
 
 
 
@@ -71,6 +72,7 @@ class Settings(BaseSettings):
     REDIS_DB: int = 0
     REDIS_URL: str = "redis://redis:6379/0"
     EVENT_BUS_CHANNEL: str = "prospector.events"
+    EVENT_BUS_CONNECT_TIMEOUT: float = 5.0
 
     EVENT_BUS_CONNECT_TIMEOUT: float = 5.0
 
@@ -82,6 +84,18 @@ class Settings(BaseSettings):
 
     @property
     def active_plugins_list(self) -> list[str]:
+        """Return active plugins from JSON or comma-separated env configuration."""
+        raw = self.ACTIVE_PLUGINS.strip()
+        if not raw:
+            return []
+        if raw.startswith("["):
+            try:
+                parsed = json.loads(raw)
+                if isinstance(parsed, list):
+                    return [str(p).strip() for p in parsed if str(p).strip()]
+            except json.JSONDecodeError:
+                logger.warning("ACTIVE_PLUGINS is not valid JSON; falling back to CSV parsing")
+        return [p.strip() for p in raw.split(",") if p.strip()]
         """Return active plugins from comma-separated env configuration."""
         return [p.strip() for p in self.ACTIVE_PLUGINS.split(",") if p.strip()]
 
@@ -91,7 +105,6 @@ class Settings(BaseSettings):
     def active_plugins_list(self) -> list[str]:
         """Return active plugins from comma-separated env configuration."""
         return [p.strip() for p in self.ACTIVE_PLUGINS.split(",") if p.strip()]
-=======
     ACTIVE_PLUGINS: list[str] = []
 
 

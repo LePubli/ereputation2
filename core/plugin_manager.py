@@ -256,6 +256,10 @@ class PluginManager:
         loaded_count = 0
         
         active_plugins = settings.active_plugins_list
+        if not active_plugins:
+            active_plugins = [
+                name for name, plugin in self.plugins.items() if plugin.active
+            ]
 
         for plugin_name in active_plugins:
             if plugin_name in self.plugins:
