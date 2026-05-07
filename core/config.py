@@ -6,10 +6,18 @@ Usage :
     settings.DATABASE_URL  # ...
 """
 import json
+
+
+
 import sys
 from pathlib import Path
 
 from loguru import logger
+
+from pathlib import Path
+
+
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -66,6 +74,9 @@ class Settings(BaseSettings):
     EVENT_BUS_CHANNEL: str = "prospector.events"
     EVENT_BUS_CONNECT_TIMEOUT: float = 5.0
 
+    EVENT_BUS_CONNECT_TIMEOUT: float = 5.0
+
+
     # --- Plugins ---
     PLUGINS_DIR: Path = Path("plugins")
     PLUGINS_AUTO_DISCOVER: bool = True
@@ -85,6 +96,17 @@ class Settings(BaseSettings):
             except json.JSONDecodeError:
                 logger.warning("ACTIVE_PLUGINS is not valid JSON; falling back to CSV parsing")
         return [p.strip() for p in raw.split(",") if p.strip()]
+        """Return active plugins from comma-separated env configuration."""
+        return [p.strip() for p in self.ACTIVE_PLUGINS.split(",") if p.strip()]
+
+    ACTIVE_PLUGINS: str = ""
+
+    @property
+    def active_plugins_list(self) -> list[str]:
+        """Return active plugins from comma-separated env configuration."""
+        return [p.strip() for p in self.ACTIVE_PLUGINS.split(",") if p.strip()]
+    ACTIVE_PLUGINS: list[str] = []
+
 
     # --- Scrapers ---
     SCRAPER_USER_AGENT: str = "Mozilla/5.0 (compatible; B2BProspector/1.1)"
@@ -141,6 +163,7 @@ def setup_logging() -> None:
 
     log_dir = Path("/app/logs")
     if log_dir.exists() and log_dir.is_dir():
+
         try:
             logger.add(
                 log_dir / "app.log",
@@ -153,4 +176,14 @@ def setup_logging() -> None:
             )
         except Exception as exc:
             logger.warning(f"File logging disabled: {exc}")
+        logger.add(
+            log_dir / "app.log",
+            level=settings.LOG_LEVEL,
+            rotation="10 MB",
+            retention="14 days",
+            compression="gz",
+            backtrace=settings.DEBUG,
+            diagnose=settings.DEBUG,
+        )
+
 

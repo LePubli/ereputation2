@@ -88,6 +88,9 @@ EXPOSE 8000
 # Healthcheck sans proxy env : requête HTTP directe vers /health.
 HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=5 \
     CMD python -c "import http.client,sys; c=http.client.HTTPConnection('127.0.0.1',8000,timeout=5); c.request('GET','/health'); r=c.getresponse(); sys.exit(0 if r.status==200 else 1)"
+# Healthcheck sans proxy env : socket HTTP direct vers /health.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=5 \
+    CMD python -c "import socket,sys; s=socket.create_connection(('127.0.0.1',8000),5); s.sendall(b'GET /health HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n'); data=s.recv(128); s.close(); sys.exit(0 if b' 200 ' in data else 1)"
 
 # tini = init PID 1 (gestion des signaux, reaping zombies)
 ENTRYPOINT ["/usr/bin/tini", "--"]
