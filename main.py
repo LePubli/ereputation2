@@ -89,28 +89,45 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     # Startup
     logger.info(f"🚀 Starting {settings.APP_NAME} v{settings.APP_VERSION}")
     
-    # Connect to EventBus
-    await event_bus.connect()
-    
-    # Discover and load plugins
-    discovered = plugin_manager.discover()
-    logger.info(f"Discovered plugins: {discovered}")
-    
-    # Initialize active plugins
-    loaded = plugin_manager.initialize_all()
-    logger.info(f"Loaded {loaded} plugins")
-    
-    # Load plugin routes dynamically
-    routes_count = load_plugin_routes(app)
-    logger.info(f"Loaded {routes_count} plugin routes")
-    
-    # Start event listener in background
-    asyncio.create_task(event_bus.listen())
-    
+    listener_task = None
+
+    try:
+        connected = await asyncio.wait_for(
+            event_bus.connect(),
+            timeout=settings.EVENT_BUS_CONNECT_TIMEOUT + 1,
+        )
+        if connected:
+            listener_task = asyncio.create_task(event_bus.listen())
+        else:
+            logger.warning("EventBus started in degraded in-memory mode")
+    except Exception as exc:
+        logger.warning(f"EventBus startup skipped: {exc}")
+
+    try:
+        # Discover and load plugins
+        discovered = plugin_manager.discover()
+        logger.info(f"Discovered plugins: {discovered}")
+
+        # Initialize active plugins
+        loaded = plugin_manager.initialize_all()
+        logger.info(f"Loaded {loaded} plugins")
+
+        # Load plugin routes dynamically
+        routes_count = load_plugin_routes(app)
+        logger.info(f"Loaded {routes_count} plugin routes")
+    except Exception as exc:
+        logger.exception(f"Plugin startup skipped to keep API healthy: {exc}")
+
     yield
-    
+
     # Shutdown
     logger.info("Shutting down...")
+    if listener_task:
+        listener_task.cancel()
+        try:
+            await listener_task
+        except asyncio.CancelledError:
+            pass
     await event_bus.disconnect()
 
 

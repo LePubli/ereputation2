@@ -1,9 +1,19 @@
 """
 Tests unitaires pour le plugin scraper-insee
 """
+import importlib.util
+from pathlib import Path
+
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-import httpx
+
+
+def get_scraper_class():
+    module_path = Path(__file__).parents[2] / "plugins" / "scraper-insee" / "main.py"
+    spec = importlib.util.spec_from_file_location("scraper_insee_main", module_path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.ScraperINSEE
 
 
 class TestScraperINSEE:
@@ -12,11 +22,9 @@ class TestScraperINSEE:
     @pytest.mark.asyncio
     async def test_get_insee_token(self):
         """Test de récupération du token INSEE"""
-        from plugins.scraper-insee.main import ScraperINSEE
+        scraper = get_scraper_class()()
         
-        scraper = ScraperINSEE()
-        
-        with patch('httpx.AsyncClient.post') as mock_post:
+        with patch('httpx.AsyncClient.post', new_callable=AsyncMock) as mock_post:
             mock_response = MagicMock()
             mock_response.json.return_value = {"access_token": "test_token_123"}
             mock_post.return_value = mock_response
@@ -29,9 +37,7 @@ class TestScraperINSEE:
     @pytest.mark.asyncio
     async def test_fetch_company_data_success(self):
         """Test de récupération des données entreprise (succès)"""
-        from plugins.scraper-insee.main import ScraperINSEE
-        
-        scraper = ScraperINSEE()
+        scraper = get_scraper_class()()
         scraper.insee_token = "valid_token"
         
         mock_data = {
@@ -45,7 +51,7 @@ class TestScraperINSEE:
             }
         }
         
-        with patch('httpx.AsyncClient.get') as mock_get:
+        with patch('httpx.AsyncClient.get', new_callable=AsyncMock) as mock_get:
             mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.json.return_value = mock_data
@@ -60,11 +66,9 @@ class TestScraperINSEE:
     @pytest.mark.asyncio
     async def test_fetch_company_data_not_found(self):
         """Test de récupération des données (entreprise non trouvée)"""
-        from plugins.scraper-insee.main import ScraperINSEE
+        scraper = get_scraper_class()()
         
-        scraper = ScraperINSEE()
-        
-        with patch('httpx.AsyncClient.get') as mock_get:
+        with patch('httpx.AsyncClient.get', new_callable=AsyncMock) as mock_get:
             mock_response = MagicMock()
             mock_response.status_code = 404
             mock_get.return_value = mock_response
@@ -77,9 +81,7 @@ class TestScraperINSEE:
     @pytest.mark.asyncio
     async def test_pappers_fallback(self):
         """Test du fallback vers Pappers API"""
-        from plugins.scraper-insee.main import ScraperINSEE
-        
-        scraper = ScraperINSEE()
+        scraper = get_scraper_class()()
         scraper.use_insee = False  # Forcer Pappers
         
         mock_data = {
@@ -88,7 +90,7 @@ class TestScraperINSEE:
             "ville": "Lyon"
         }
         
-        with patch('httpx.AsyncClient.get') as mock_get:
+        with patch('httpx.AsyncClient.get', new_callable=AsyncMock) as mock_get:
             mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.json.return_value = mock_data
@@ -101,9 +103,7 @@ class TestScraperINSEE:
     
     def test_validate_siren_format(self):
         """Test de validation du format SIREN"""
-        from plugins.scraper-insee.main import ScraperINSEE
-        
-        scraper = ScraperINSEE()
+        scraper = get_scraper_class()()
         
         # SIREN valide (9 chiffres)
         assert scraper._validate_siren("123456789") is True
@@ -117,9 +117,7 @@ class TestScraperINSEE:
     
     def test_siren_to_siret_conversion(self):
         """Test de conversion SIREN → SIRET"""
-        from plugins.scraper-insee.main import ScraperINSEE
-        
-        scraper = ScraperINSEE()
+        scraper = get_scraper_class()()
         
         # SIREN + NIC (numéro interne) = SIRET
         siren = "123456789"
@@ -132,9 +130,7 @@ class TestScraperINSEE:
     
     def test_cache_mechanism(self):
         """Test du mécanisme de cache"""
-        from plugins.scraper-insee.main import ScraperINSEE
-        
-        scraper = ScraperINSEE()
+        scraper = get_scraper_class()()
         
         # Ajouter au cache
         test_data = {"siren": "123456789", "test": "value"}
@@ -158,16 +154,14 @@ class TestScraperINSEESearch:
     @pytest.mark.asyncio
     async def test_search_by_name(self):
         """Test de recherche par nom d'entreprise"""
-        from plugins.scraper-insee.main import ScraperINSEE
-        
-        scraper = ScraperINSEE()
+        scraper = get_scraper_class()()
         
         mock_results = [
             {"siren": "111111111", "nom": "Company A"},
             {"siren": "222222222", "nom": "Company B"},
         ]
         
-        with patch('httpx.AsyncClient.get') as mock_get:
+        with patch('httpx.AsyncClient.get', new_callable=AsyncMock) as mock_get:
             mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.json.return_value = {"results": mock_results}
@@ -181,16 +175,14 @@ class TestScraperINSEESearch:
     @pytest.mark.asyncio
     async def test_search_by_naf_code(self):
         """Test de recherche par code NAF"""
-        from plugins.scraper-insee.main import ScraperINSEE
-        
-        scraper = ScraperINSEE()
+        scraper = get_scraper_class()()
         
         mock_results = [
             {"siren": "333333333", "naf": "6201Z"},
             {"siren": "444444444", "naf": "6201Z"},
         ]
         
-        with patch('httpx.AsyncClient.get') as mock_get:
+        with patch('httpx.AsyncClient.get', new_callable=AsyncMock) as mock_get:
             mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.json.return_value = {"results": mock_results}
@@ -203,9 +195,7 @@ class TestScraperINSEESearch:
     
     def test_search_query_validation(self):
         """Test de validation des requêtes de recherche"""
-        from plugins.scraper-insee.main import ScraperINSEE
-        
-        scraper = ScraperINSEE()
+        scraper = get_scraper_class()()
         
         # Requête valide
         assert scraper._validate_query("Company Name") is True
