@@ -149,11 +149,19 @@ services:
     expose:
       - "8000"
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/health"]
+      # Use Python's HTTP client instead of curl/raw CRLF strings so proxy env
+      # vars and YAML escape handling cannot break localhost healthchecks.
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import http.client,sys; c=http.client.HTTPConnection('127.0.0.1',8000,timeout=5); c.request('GET','/health'); r=c.getresponse(); sys.exit(0 if r.status==200 else 1)",
+        ]
       interval: 30s
       timeout: 10s
-      retries: 3
-      start_period: 40s
+      retries: 5
+      start_period: 120s
     deploy:
       resources:
         limits:

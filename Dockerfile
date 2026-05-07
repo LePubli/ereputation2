@@ -85,9 +85,9 @@ USER appuser
 
 EXPOSE 8000
 
-# Healthcheck robuste : on vise /health (route définie dans main.py)
-HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
-    CMD curl -fsS http://127.0.0.1:8000/health || exit 1
+# Healthcheck sans proxy env : requête HTTP directe vers /health.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=5 \
+    CMD python -c "import http.client,sys; c=http.client.HTTPConnection('127.0.0.1',8000,timeout=5); c.request('GET','/health'); r=c.getresponse(); sys.exit(0 if r.status==200 else 1)"
 
 # tini = init PID 1 (gestion des signaux, reaping zombies)
 ENTRYPOINT ["/usr/bin/tini", "--"]

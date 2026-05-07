@@ -5,7 +5,11 @@ Usage :
     from core.config import settings
     settings.DATABASE_URL  # ...
 """
-from pydantic import Field
+import json
+import sys
+from pathlib import Path
+
+from loguru import logger
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -57,11 +61,30 @@ class Settings(BaseSettings):
     REDIS_HOST: str = "redis"
     REDIS_PORT: int = 6379
     REDIS_PASSWORD: str = ""
+    REDIS_DB: int = 0
     REDIS_URL: str = "redis://redis:6379/0"
+    EVENT_BUS_CHANNEL: str = "prospector.events"
+    EVENT_BUS_CONNECT_TIMEOUT: float = 5.0
 
     # --- Plugins ---
-    PLUGINS_DIR: str = "/app/plugins"
+    PLUGINS_DIR: Path = Path("plugins")
     PLUGINS_AUTO_DISCOVER: bool = True
+    ACTIVE_PLUGINS: str = ""
+
+    @property
+    def active_plugins_list(self) -> list[str]:
+        """Return active plugins from JSON or comma-separated env configuration."""
+        raw = self.ACTIVE_PLUGINS.strip()
+        if not raw:
+            return []
+        if raw.startswith("["):
+            try:
+                parsed = json.loads(raw)
+                if isinstance(parsed, list):
+                    return [str(p).strip() for p in parsed if str(p).strip()]
+            except json.JSONDecodeError:
+                logger.warning("ACTIVE_PLUGINS is not valid JSON; falling back to CSV parsing")
+        return [p.strip() for p in raw.split(",") if p.strip()]
 
     # --- Scrapers ---
     SCRAPER_USER_AGENT: str = "Mozilla/5.0 (compatible; B2BProspector/1.1)"
@@ -70,6 +93,9 @@ class Settings(BaseSettings):
     SCRAPER_CACHE_TTL_HOURS: int = 24
     SCRAPER_RETRY_ATTEMPTS: int = 3
 
+    INSEE_API_KEY: str = ""
+    INSEE_API_SECRET: str = ""
+    PAPPERS_API_KEY: str = ""
     INSEE_RECHERCHE_API: str = "https://recherche-entreprises.api.gouv.fr/search"
     BODACC_API: str = "https://bodacc-datadila.opendatasoft.com/api/explore/v2.1/catalog/datasets/annonces-commerciales/records"
     PAPPERS_BASE_URL: str = "https://www.pappers.fr"
@@ -100,3 +126,31 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+def setup_logging() -> None:
+    """Configure Loguru for container-friendly stdout and optional file logs."""
+    logger.remove()
+    logger.add(
+        sys.stderr,
+        level=settings.LOG_LEVEL,
+        colorize=False,
+        backtrace=settings.DEBUG,
+        diagnose=settings.DEBUG,
+    )
+
+    log_dir = Path("/app/logs")
+    if log_dir.exists() and log_dir.is_dir():
+        try:
+            logger.add(
+                log_dir / "app.log",
+                level=settings.LOG_LEVEL,
+                rotation="10 MB",
+                retention="14 days",
+                compression="gz",
+                backtrace=settings.DEBUG,
+                diagnose=settings.DEBUG,
+            )
+        except Exception as exc:
+            logger.warning(f"File logging disabled: {exc}")
+

@@ -4,7 +4,8 @@ Utilise l'API INSEE en priorité, avec fallback sur Pappers/BODACC
 """
 import httpx
 from typing import Dict, Any, Optional, List
-from datetime import datetime
+from pathlib import Path
+from datetime import datetime, timedelta
 from loguru import logger
 
 from core.config import settings
@@ -45,7 +46,7 @@ class INSEEService:
                     data = response.json()
                     self._access_token = data.get("access_token")
                     expires_in = data.get("expires_in", 3600)
-                    self._token_expiry = datetime.utcnow().timestamp() + expires_in - 60
+                    self._token_expiry = datetime.utcnow() + timedelta(seconds=expires_in - 60)
                     return self._access_token
                     
         except Exception as e:
@@ -245,7 +246,7 @@ class ScraperINSEEPlugin:
                 return parsed
         
         # Fallback Pappers (avec SIREN extrait du SIRET)
-        if settings.PLUGINS_DIR.parent.joinpath("scraper-insee").exists():
+        if Path(settings.PLUGINS_DIR).joinpath("scraper-insee").exists():
             siren = siret[:9] if len(siret) >= 9 else siret
             logger.info(f"Fetching SIREN {siren} from Pappers (fallback)")
             
@@ -302,6 +303,112 @@ class ScraperINSEEPlugin:
         })
         
         return results
+
+
+class ScraperINSEE(ScraperINSEEPlugin):
+    """Facade rétrocompatible autour de ScraperINSEEPlugin."""
+
+    def __init__(self):
+        super().__init__()
+        self.use_insee = True
+        self.insee_token: Optional[str] = None
+        self._cache: Dict[str, Dict[str, Any]] = {}
+
+    async def _get_insee_token(self) -> Optional[str]:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                self.insee_service.token_url,
+                data={"grant_type": "client_credentials"},
+                timeout=10.0,
+            )
+        token = response.json().get("access_token")
+        self.insee_token = token
+        return token
+
+    async def _fetch_from_pappers(self, siren: str) -> Optional[Dict[str, Any]]:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{self.pappers_service.base_url}/entreprise",
+                params={"siren": siren, "cle_api": self.pappers_service.api_key},
+                timeout=10.0,
+            )
+        if response.status_code == 200:
+            return self.parse_pappers_data(response.json())
+        return None
+
+    async def fetch_company_data(self, identifier: str) -> Optional[Dict[str, Any]]:
+        if not self._validate_siren(identifier) and not (identifier.isdigit() and len(identifier) == 14):
+            raise ValueError("Invalid SIREN/SIRET")
+
+        cached = self._cache_get(identifier)
+        if cached:
+            return cached
+
+        if self.use_insee:
+            token = self.insee_token or await self._get_insee_token()
+            if token:
+                async with httpx.AsyncClient() as client:
+                    response = await client.get(
+                        f"{self.insee_service.base_url}/entreprises/siret/{identifier}",
+                        headers={"Authorization": f"Bearer {token}"},
+                        timeout=10.0,
+                    )
+                if response.status_code == 404:
+                    raise LookupError(f"Company {identifier} not found")
+                if response.status_code == 200:
+                    parsed = self.parse_insee_data(response.json())
+                    self._cache_set(identifier, parsed)
+                    return parsed
+
+        siren = identifier[:9]
+        parsed = await self._fetch_from_pappers(siren)
+        if parsed:
+            self._cache_set(identifier, parsed)
+        return parsed
+
+    async def search_by_name(self, query: str) -> List[Dict[str, Any]]:
+        if not self._validate_query(query):
+            return []
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{self.insee_service.base_url}/entreprises/rechercher",
+                params={"q": query},
+                timeout=10.0,
+            )
+        if response.status_code == 200:
+            data = response.json()
+            return data.get("results", data.get("resultats", []))
+        return []
+
+    async def search_by_naf(self, naf_code: str) -> List[Dict[str, Any]]:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{self.insee_service.base_url}/entreprises/rechercher",
+                params={"naf": naf_code},
+                timeout=10.0,
+            )
+        if response.status_code == 200:
+            data = response.json()
+            return data.get("results", data.get("resultats", []))
+        return []
+
+    @staticmethod
+    def _validate_siren(siren: str) -> bool:
+        return siren.isdigit() and len(siren) == 9
+
+    @staticmethod
+    def _siren_to_siret(siren: str, nic: str) -> str:
+        return f"{siren}{nic}"
+
+    @staticmethod
+    def _validate_query(query: str) -> bool:
+        return len(query) >= 3 and "<" not in query and ">" not in query
+
+    def _cache_set(self, key: str, value: Dict[str, Any]) -> None:
+        self._cache[key] = value
+
+    def _cache_get(self, key: str) -> Optional[Dict[str, Any]]:
+        return self._cache.get(key)
 
 
 # Instance globale du plugin

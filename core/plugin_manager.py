@@ -18,7 +18,7 @@ class PluginInfo:
     name: str
     version: str
     description: str
-    author: str
+    author: str = ""
     active: bool = False
     dependencies: List[str] = field(default_factory=list)
     endpoints: List[Dict[str, Any]] = field(default_factory=list)
@@ -54,7 +54,7 @@ class PluginManager:
     def __init__(self):
         self.plugins: Dict[str, PluginInfo] = {}
         self.loaded_modules: Dict[str, Any] = {}
-        self.plugins_dir = settings.PLUGINS_DIR
+        self.plugins_dir = Path(settings.PLUGINS_DIR)
         
     def discover(self) -> List[str]:
         """
@@ -120,6 +120,10 @@ class PluginManager:
         
         return True
     
+    def _check_dependencies(self, plugin_name: str) -> bool:
+        """Alias rétrocompatible pour validate_dependencies."""
+        return self.validate_dependencies(plugin_name)
+
     def load(self, plugin_name: str) -> bool:
         """
         Charge un plugin spécifique
@@ -251,14 +255,20 @@ class PluginManager:
         """
         loaded_count = 0
         
-        for plugin_name in settings.ACTIVE_PLUGINS:
+        active_plugins = settings.active_plugins_list
+        if not active_plugins:
+            active_plugins = [
+                name for name, plugin in self.plugins.items() if plugin.active
+            ]
+
+        for plugin_name in active_plugins:
             if plugin_name in self.plugins:
                 if self.enable(plugin_name):
                     loaded_count += 1
             else:
                 logger.warning(f"Plugin {plugin_name} in ACTIVE_PLUGINS but not discovered")
         
-        logger.info(f"Initialized {loaded_count}/{len(settings.ACTIVE_PLUGINS)} configured plugins")
+        logger.info(f"Initialized {loaded_count}/{len(active_plugins)} configured plugins")
         return loaded_count
 
 

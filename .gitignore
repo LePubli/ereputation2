@@ -1,32 +1,38 @@
-```
-# Docker related
-*.dockerignore
+# Docker/runtime internals
 .dockerenv
 
 # Dependencies
 node_modules/
+frontend/node_modules/
 
 # Build artifacts
 dist/
 build/
 target/
+frontend/dist/
+frontend/.vite/
 
 # Logs and temp files
 *.log
 *.tmp
+logs/
+data/
 
-# Environment
+# Environment / secrets
 .env
 .env.local
 *.env.*
+!.env.example
 
-# Editors
+# Editors / OS
 .vscode/
 .idea/
+.DS_Store
+Thumbs.db
 
 # Python
 __pycache__/
-*.pyc
+*.py[cod]
 *.pyo
 *.pyd
 .Python
@@ -39,11 +45,13 @@ pip-delete-this-directory.txt
 .coverage
 .coverage.*
 .cache
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 nosetests.xml
 coverage.xml
 *.cover
-*.log
+htmlcov/
+
+# Git internals from submodules/worktrees
 .git/modules/
-.DS_Store
-Thumbs.db
-```
