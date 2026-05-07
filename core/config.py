@@ -5,7 +5,14 @@ Usage :
     from core.config import settings
     settings.DATABASE_URL  # ...
 """
+
+import sys
 from pathlib import Path
+
+from loguru import logger
+=======
+from pathlib import Path
+
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -107,3 +114,28 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+def setup_logging() -> None:
+    """Configure Loguru for container-friendly stdout and optional file logs."""
+    logger.remove()
+    logger.add(
+        sys.stderr,
+        level=settings.LOG_LEVEL,
+        colorize=False,
+        backtrace=settings.DEBUG,
+        diagnose=settings.DEBUG,
+    )
+
+    log_dir = Path("/app/logs")
+    if log_dir.exists() and log_dir.is_dir():
+        logger.add(
+            log_dir / "app.log",
+            level=settings.LOG_LEVEL,
+            rotation="10 MB",
+            retention="14 days",
+            compression="gz",
+            backtrace=settings.DEBUG,
+            diagnose=settings.DEBUG,
+        )
+
