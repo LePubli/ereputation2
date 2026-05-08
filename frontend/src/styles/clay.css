@@ -1,0 +1,123 @@
+/* Design System Clay-inspired — B2B Prospector Phase 3 */
+
+:root {
+  --sidebar-bg: #111118;
+  --sidebar-text: #e4e4e7;
+  --sidebar-muted: #71717a;
+  --sidebar-hover: #1e1e2e;
+  --sidebar-active: #2563eb;
+  --sidebar-active-bg: rgba(37, 99, 235, 0.15);
+  --sidebar-border: #27272a;
+
+  --bg: #fafafa;
+  --bg-card: #ffffff;
+  --border: #e4e7ec;
+  --border-strong: #d0d5dd;
+
+  --text: #101828;
+  --text-muted: #667085;
+  --text-light: #98a2b3;
+
+  --blue: #2563eb;
+  --blue-light: #eff6ff;
+  --green: #16a34a;
+  --green-light: #f0fdf4;
+  --orange: #ea580c;
+  --orange-light: #fff7ed;
+  --red: #dc2626;
+  --red-light: #fef2f2;
+  --purple: #7c3aed;
+  --purple-light: #faf5ff;
+
+  --cell-h: 36px;
+  --header-h: 44px;
+  --row-hover: #f8faff;
+
+  --radius: 6px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.08), 0 2px 4px -1px rgba(0,0,0,0.04);
+  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.08), 0 4px 6px -2px rgba(0,0,0,0.04);
+}
+
+/* Scrollbars fines */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-light); }
+
+/* Animations */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.animate-pulse-dot { animation: pulse-dot 1.4s ease-in-out infinite; }
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Table Clay */
+.clay-table { border-collapse: collapse; width: 100%; font-size: 13px; }
+.clay-th {
+  height: var(--header-h);
+  padding: 0 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--bg-card);
+  border-right: 1px solid var(--border);
+  border-bottom: 2px solid var(--border);
+  text-align: left;
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  user-select: none;
+}
+.clay-th:first-child { position: sticky; left: 0; z-index: 20; background: var(--bg-card); }
+.clay-td {
+  height: var(--cell-h);
+  padding: 0 12px;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  max-width: 280px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--text);
+}
+.clay-td:first-child { position: sticky; left: 0; background: white; z-index: 5; font-weight: 500; }
+.clay-tr:hover .clay-td { background: var(--row-hover); }
+.clay-tr:hover .clay-td:first-child { background: var(--row-hover); }
+.clay-tr.selected .clay-td { background: var(--blue-light); }
+
+/* Status dots */
+.dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+.dot-green { background: var(--green); }
+.dot-orange { background: var(--orange); }
+.dot-gray { background: #d1d5db; }
+.dot-red { background: var(--red); }
+.dot-blue { animation: pulse-dot 1.4s ease-in-out infinite; background: var(--blue); }
+
+/* Source badges */
+.source-badge {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.source-insee { background: #dbeafe; color: #1d4ed8; }
+.source-bodacc { background: #fce7f3; color: #be185d; }
+.source-pappers { background: #dcfce7; color: #15803d; }
+.source-google_maps { background: #fef9c3; color: #854d0e; }
+.source-pages_jaunes { background: #fef3c7; color: #92400e; }
+.source-ai_agent { background: #ede9fe; color: #6d28d9; }
+.source-societe_com { background: #fee2e2; color: #991b1b; }
+.source-trustpilot { background: #d1fae5; color: #065f46; }

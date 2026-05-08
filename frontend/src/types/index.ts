@@ -1,4 +1,15 @@
-// Types TypeScript Phase 2
+// Types Phase 3 — ajout ColumnConfig + extension Prospect
+
+export interface ColumnConfig {
+  id: string;
+  name: string;
+  source: string;
+  field_path: string;
+  display_type: string;
+  width: number;
+  is_visible: boolean;
+  config?: Record<string, unknown>;
+}
 
 export interface Contact {
   id: string; prospect_id: string;
@@ -19,6 +30,7 @@ export interface Prospect {
   digital_score: number | null; propensity_score: number | null;
   propensity_category: 'HOT' | 'WARM' | 'COLD' | null;
   enrichment: Record<string, unknown>; sources_used: string[];
+  ai_enrichment: Record<string, unknown>;
   last_enriched_at: string | null; notes: string | null; tags: string[];
   estimated_revenue: number | null; consent_given: boolean; opt_out: boolean;
   source: string; activities_count: number; last_activity_at: string | null;
@@ -33,7 +45,6 @@ export interface ProspectImportResult {
   imported: number; skipped: number; errors: string[];
 }
 
-// Pipeline
 export interface PipelineStage {
   id: string; name: string; slug: string; description: string | null;
   color: string; order: number; is_won: boolean; is_lost: boolean;
@@ -48,7 +59,6 @@ export interface KanbanCard {
 export interface KanbanColumn { stage: PipelineStage; cards: KanbanCard[]; count: number; }
 export interface KanbanBoard { columns: KanbanColumn[]; total: number; }
 
-// Dashboard
 export interface DashboardKPI {
   total_prospects: number; conversion_rate: number;
   estimated_revenue: number; active_plugins: number;
@@ -63,14 +73,11 @@ export interface SystemInfo {
 export interface PluginInfo { name: string; version: string; description: string | null; active: boolean; config: Record<string, unknown>; }
 export interface PluginsResponse { plugins: PluginInfo[]; total: number; active_count: number; }
 
-// Auth
 export interface AuthUser { id: string; email: string; full_name: string; role: string; }
 export interface TokenResponse { access_token: string; refresh_token: string; token_type: string; expires_in: number; }
 
-// Activities
 export type ActivityType = 'call' | 'email' | 'meeting' | 'note' | 'task' | 'linkedin' | 'other';
 export type ActivityOutcome = 'positive' | 'neutral' | 'negative';
-
 export interface Activity {
   id: string; prospect_id: string; user_id: string | null;
   type: ActivityType; title: string; body: string | null;
@@ -79,7 +86,6 @@ export interface Activity {
   created_at: string; updated_at: string;
 }
 
-// Filtres
 export interface ProspectFilters {
   search?: string; stage_id?: string; naf_code?: string;
   region?: string; department?: string;
@@ -87,4 +93,5 @@ export interface ProspectFilters {
   source?: string; has_website?: boolean; has_phone?: boolean;
   min_score?: number; tags?: string;
   sort_by?: string; sort_dir?: 'asc' | 'desc';
+  page?: number; page_size?: number;
 }
