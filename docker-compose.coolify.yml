@@ -85,12 +85,12 @@ services:
         VITE_APP_VERSION: ${VITE_APP_VERSION}
     restart: unless-stopped
     expose:
-      - "8080"
+      - "3001"
+    ports:
+      - "3001:3001"
     depends_on:
       backend:
         condition: service_healthy
-    ports:
-      - "8080:8080"
 
 volumes:
   postgres_data:
