@@ -62,10 +62,15 @@ async def create_by_siret(
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Échec de l'enrichissement : {e}",
-        )
+        # Log complet + message utilisateur clair (pas de 502 silencieux)
+        import traceback
+        error_detail = str(e)
+        # Si toutes les sources ont échoué (403/400), on le dit clairement
+        if "sources_used" in error_detail or "scraping" in error_detail.lower():
+            msg = "Enrichissement impossible : sources externes indisponibles. Essayez la saisie manuelle."
+        else:
+            msg = f"Échec de l'enrichissement : {error_detail[:200]}"
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=msg)
     return ProspectRead.model_validate(prospect)
 
 
