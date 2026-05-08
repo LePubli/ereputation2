@@ -45,6 +45,10 @@ class PappersScraper(BaseScraper):
         try:
             await asyncio.sleep(self.POLITE_DELAY)
             response = await self._http_get(url)
+            # 403 = bloqué par Pappers (volume trop élevé ou IP bloquée)
+            if response.status_code in (403, 429):
+                logger.warning(f"[Pappers] Bloqué ({response.status_code}) sur {siren}")
+                return ScraperResult(self.source_name, success=False, error=f"HTTP {response.status_code}")
             html = response.text
         except Exception as e:
             logger.warning(f"[Pappers] Échec sur {siren}: {e}")

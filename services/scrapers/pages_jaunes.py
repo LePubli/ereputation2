@@ -53,6 +53,9 @@ class PagesJaunesScraper(BaseScraper):
         try:
             await asyncio.sleep(self.POLITE_DELAY)
             response = await self._http_get(url, params=params)
+            if response.status_code in (403, 429):
+                logger.warning(f"[PagesJaunes] Bloqué ({response.status_code}) sur {name}/{city}")
+                return ScraperResult(self.source_name, success=False, error=f"HTTP {response.status_code}")
             html = response.text
         except Exception as e:
             logger.warning(f"[PagesJaunes] Échec sur {name}/{city}: {e}")

@@ -34,15 +34,16 @@ class BodaccScraper(BaseScraper):
         siren = identifier[:9]
 
         try:
+            # Guillemets SIMPLES obligatoires pour la syntaxe ODSQL
             params = {
-                "where": f'registre LIKE "{siren}%" OR rcs LIKE "{siren}%"',
+                "where": f"registre LIKE '{siren}%' OR rcs LIKE '{siren}%'",
                 "limit": 20,
                 "order_by": "dateparution desc",
             }
             response = await self._http_get(self.BASE_URL, params=params)
             data = response.json()
         except Exception as e:
-            logger.exception(f"[BODACC] Erreur sur {siren}")
+            logger.warning(f"[BODACC] Échec sur {siren}: {e}")
             return ScraperResult(self.source_name, success=False, error=str(e))
 
         records = data.get("results", []) or []

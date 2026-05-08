@@ -111,7 +111,9 @@ class BaseScraper(ABC):
                             http2=False,
                         ) as client:
                             response = await client.get(url, params=params, headers=headers)
-                            response.raise_for_status()
+                            # Ne retry que les 5xx, les 4xx (403/400) sont retournés
+                            if response.status_code >= 500:
+                                response.raise_for_status()
                             return response
             except RetryError as e:
                 logger.warning(f"[{self.source_name}] Retry exhausted on {url}: {e}")
