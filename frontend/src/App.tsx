@@ -1,9 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AppShell } from './components/layout/AppShell';
+import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { Toaster } from './components/ui/Toast';
 import Dashboard from './pages/Dashboard';
+import Login from './pages/Login';
 import Pipeline from './pages/Pipeline';
 import Plugins from './pages/Plugins';
 import Prospects from './pages/Prospects';
@@ -11,11 +13,7 @@ import Settings from './pages/Settings';
 
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: {
-      retry: 1,
-      refetchOnWindowFocus: false,
-      staleTime: 30_000,
-    },
+    queries: { retry: 1, refetchOnWindowFocus: false, staleTime: 30_000 },
   },
 });
 
@@ -24,16 +22,32 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <ErrorBoundary>
-          <AppShell>
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/pipeline" element={<Pipeline />} />
-              <Route path="/prospects" element={<Prospects />} />
-              <Route path="/plugins" element={<Plugins />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="*" element={<Dashboard />} />
-            </Routes>
-          </AppShell>
+          <Routes>
+            {/* Public */}
+            <Route path="/login" element={<Login />} />
+
+            {/* Protégées */}
+            <Route path="/" element={
+              <ProtectedRoute>
+                <AppShell>
+                  <Dashboard />
+                </AppShell>
+              </ProtectedRoute>
+            } />
+            <Route path="/pipeline" element={
+              <ProtectedRoute><AppShell><Pipeline /></AppShell></ProtectedRoute>
+            } />
+            <Route path="/prospects" element={
+              <ProtectedRoute><AppShell><Prospects /></AppShell></ProtectedRoute>
+            } />
+            <Route path="/plugins" element={
+              <ProtectedRoute><AppShell><Plugins /></AppShell></ProtectedRoute>
+            } />
+            <Route path="/settings" element={
+              <ProtectedRoute><AppShell><Settings /></AppShell></ProtectedRoute>
+            } />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
         </ErrorBoundary>
       </BrowserRouter>
       <Toaster />
