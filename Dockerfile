@@ -1,105 +1,69 @@
-# syntax=docker/dockerfile:1.7
-###############################################################################
-# B2B Prospector — Backend Dockerfile (Production-Ready)
-# Stack : Python 3.11 + FastAPI + Uvicorn + Loguru + Redis + PostgreSQL
-# Build : multi-stage (builder + runtime), non-root, image slim
-# Cible : Coolify (Docker 29.x) sur Ubuntu 24 LTS
-###############################################################################
+# ====================================
+# B2B Prospector — Backend Dockerfile
+# Python 3.11 + Playwright (Chromium)
+# ====================================
 
-# ----- STAGE 1 : BUILDER (compile wheels, build deps) ------------------------
-FROM python:3.11-slim-bookworm AS builder
+FROM python:3.11-slim AS base
 
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
+# Variables d'env
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    PIP_DEFAULT_TIMEOUT=100
+    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
-WORKDIR /build
-
-# Build deps pour wheels natifs (lxml, psycopg2, etc.)
+# Dépendances système (Playwright + libs scraping)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        build-essential \
-        gcc \
-        libpq-dev \
-        libxml2-dev \
-        libxslt1-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-COPY requirements.txt .
-
-# Install dans un préfixe isolé qu'on copiera dans le runtime stage
-# Cache mount BuildKit : énorme gain sur builds incrémentaux
-RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install --user --no-warn-script-location -r requirements.txt && \
-    # Ajout PostgreSQL driver async (manquant dans requirements.txt)
-    pip install --user --no-warn-script-location 'asyncpg>=0.29.0' 'psycopg2-binary>=2.9.9'
-
-# ----- STAGE 2 : RUNTIME (image finale, slim) --------------------------------
-FROM python:3.11-slim-bookworm AS production
-
-# Métadonnées OCI
-LABEL org.opencontainers.image.title="b2b-prospector-backend" \
-      org.opencontainers.image.description="Copilote Commercial B2B - API FastAPI" \
-      org.opencontainers.image.vendor="Epok" \
-      org.opencontainers.image.licenses="Proprietary"
-
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PYTHONPATH=/app \
-    PATH=/home/appuser/.local/bin:$PATH \
-    PIP_NO_CACHE_DIR=1
-
-# Runtime deps uniquement (pas de build tools dans l'image finale)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        curl \
-        tini \
-        libpq5 \
-        libxml2 \
-        libxslt1.1 \
-        ca-certificates \
-    && rm -rf /var/lib/apt/lists/* \
-    # User non-root
-    && groupadd --system --gid 1000 appuser \
-    && useradd --system --uid 1000 --gid 1000 --create-home --shell /bin/bash appuser
+    curl \
+    ca-certificates \
+    libpq-dev \
+    gcc \
+    g++ \
+    libxml2-dev \
+    libxslt1-dev \
+    libjpeg-dev \
+    zlib1g-dev \
+    # Playwright Chromium runtime
+    libnss3 \
+    libatk-bridge2.0-0 \
+    libcups2 \
+    libxkbcommon0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxrandr2 \
+    libgbm1 \
+    libpango-1.0-0 \
+    libcairo2 \
+    libasound2 \
+    libgtk-3-0 \
+    fonts-liberation \
+  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Récupère les paquets Python du stage builder
-COPY --from=builder --chown=appuser:appuser /root/.local /home/appuser/.local
+# Install dépendances Python
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Code applicatif (le .dockerignore fait le ménage)
-COPY --chown=appuser:appuser core/         ./core/
-COPY --chown=appuser:appuser plugins/      ./plugins/
-COPY --chown=appuser:appuser models/       ./models/
-COPY --chown=appuser:appuser services/     ./services/
-COPY --chown=appuser:appuser utils/        ./utils/
-COPY --chown=appuser:appuser repositories/ ./repositories/
-COPY --chown=appuser:appuser main.py       ./
+# Install Chromium pour Playwright
+RUN python -m playwright install chromium && \
+    python -m playwright install-deps chromium || true
 
-# Crée les dossiers writables avant de basculer en non-root
-RUN mkdir -p /app/logs /app/data /app/tmp && \
-    chown -R appuser:appuser /app
+# Copie du code applicatif
+COPY core/ ./core/
+COPY models/ ./models/
+COPY plugins/ ./plugins/
+COPY services/ ./services/
+COPY scripts/ ./scripts/
+COPY alembic/ ./alembic/
+COPY alembic.ini ./
+COPY main.py ./
 
-USER appuser
+# Healthcheck
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+  CMD curl -fsS http://localhost:8000/health || exit 1
 
 EXPOSE 8000
 
-# Healthcheck sans proxy env : requête HTTP directe vers /health.
-HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=5 \
-    CMD python -c "import http.client,sys; c=http.client.HTTPConnection('127.0.0.1',8000,timeout=5); c.request('GET','/health'); r=c.getresponse(); sys.exit(0 if r.status==200 else 1)"
-# Healthcheck sans proxy env : socket HTTP direct vers /health.
-HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=5 \
-    CMD python -c "import socket,sys; s=socket.create_connection(('127.0.0.1',8000),5); s.sendall(b'GET /health HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n'); data=s.recv(128); s.close(); sys.exit(0 if b' 200 ' in data else 1)"
-
-# tini = init PID 1 (gestion des signaux, reaping zombies)
-ENTRYPOINT ["/usr/bin/tini", "--"]
-
-# Production : pas de --reload, plusieurs workers, access log via Loguru
-CMD ["uvicorn", "main:app", \
-     "--host", "0.0.0.0", \
-     "--port", "8000", \
-     "--workers", "2", \
-     "--proxy-headers", \
-     "--forwarded-allow-ips", "*", \
-     "--no-access-log"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2", "--proxy-headers"]

@@ -1,55 +1,13 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>B2B Prospector - Copilote Commercial Intelligent</title>
-    <meta name="description" content="Copilote commercial B2B intelligent pour la prospection, l'audit digital et le suivi de prospects" />
-
-    <!-- Loader inline visible IMMÉDIATEMENT, avant React -->
-    <!-- Si la page reste sur ce loader > 5s c'est que le bundle JS ne charge pas -->
-    <style>
-      html, body { margin: 0; padding: 0; height: 100%; background: #111827; color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-      #boot-loader {
-        position: fixed; inset: 0; display: flex; flex-direction: column;
-        align-items: center; justify-content: center; gap: 1rem;
-        transition: opacity 0.3s ease-out;
-      }
-      #boot-loader .spinner {
-        width: 48px; height: 48px; border: 4px solid #374151;
-        border-top-color: #3b82f6; border-radius: 50%;
-        animation: spin 1s linear infinite;
-      }
-      #boot-loader .label { color: #9ca3af; font-size: 0.9rem; }
-      #boot-loader .timeout { color: #fbbf24; font-size: 0.8rem; max-width: 400px; text-align: center; padding: 0 1rem; display: none; }
-      @keyframes spin { to { transform: rotate(360deg); } }
-      /* Lorsque React monte, il insère du contenu dans #root, ce qui masque le loader */
-      #root:not(:empty) ~ #boot-loader { opacity: 0; pointer-events: none; }
-    </style>
+    <title>B2B Prospector — Le Publicitaire</title>
   </head>
   <body>
     <div id="root"></div>
-
-    <!-- Loader fallback : visible si JS pas encore chargé OU si React n'a pas monté -->
-    <div id="boot-loader">
-      <div class="spinner"></div>
-      <div class="label">Chargement de l'application…</div>
-      <div class="timeout" id="boot-timeout">
-        Le chargement prend plus de temps que prévu. Vérifiez votre connexion ou rechargez la page.
-      </div>
-    </div>
-
-    <script>
-      // Si React n'a pas monté en 8s, afficher le message de timeout
-      setTimeout(function () {
-        var t = document.getElementById('boot-timeout');
-        if (t && document.getElementById('root').children.length === 0) {
-          t.style.display = 'block';
-        }
-      }, 8000);
-    </script>
-
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
