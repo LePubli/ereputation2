@@ -10,7 +10,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const login = useAuthStore((s) => s.login);
   const navigate = useNavigate();
-
+  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -25,50 +25,53 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="w-full max-w-md">
-        <div className="bg-white rounded-xl shadow-lg p-8">
-          <div className="flex flex-col items-center mb-8">
-            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-700 rounded-xl text-white flex items-center justify-center font-bold text-lg mb-3">
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-subtle)' }}>
+      <div style={{ width: '100%', maxWidth: 440 }}>
+        <div className="card" style={{ padding: 32 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 32 }}>
+            <div style={{ width: 48, height: 48, background: 'linear-gradient(135deg, var(--brand-500), var(--brand-700))', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 18, color: 'white', marginBottom: 12, boxShadow: 'var(--s-md)' }}>
               BP
             </div>
-            <h1 className="text-2xl font-bold text-gray-900">B2B Prospector</h1>
-            <p className="text-sm text-gray-500 mt-1">Le Publicitaire — Espace commercial</p>
+            <h1 style={{ fontSize: 24, fontWeight: 700, color: 'var(--tx-primary)', marginBottom: 4 }}>B2B Prospector</h1>
+            <p style={{ fontSize: 13, color: 'var(--tx-muted)', marginTop: 4 }}>Le Publicitaire — Espace commercial</p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--tx-secondary)', marginBottom: 6 }}>Email</label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="input"
                 placeholder="admin@le-publicitaire.fr"
                 required
                 disabled={loading}
                 autoComplete="email"
+                style={{ width: '100%' }}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Mot de passe</label>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--tx-secondary)', marginBottom: 6 }}>Mot de passe</label>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="input"
                 placeholder="••••••••"
                 required
                 disabled={loading}
                 autoComplete="current-password"
+                style={{ width: '100%' }}
               />
             </div>
             <button
               type="submit"
               disabled={loading || !email || !password}
-              className="w-full flex items-center justify-center gap-2 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium mt-2"
+              className="btn btn-primary"
+              style={{ width: '100%', height: 40, marginTop: 8 }}
             >
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
+              {loading ? <Loader2 className="animate-spin" size={16} /> : <Lock size={16} />}
               {loading ? 'Connexion…' : 'Se connecter'}
             </button>
           </form>
