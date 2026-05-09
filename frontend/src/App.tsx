@@ -17,11 +17,11 @@ const WebhooksPage   = lazy(() => import('./pages/WebhooksPage'));
 const SequencerPage  = lazy(() => import('./pages/SequencerPage'));
 const SignalsPage     = lazy(() => import('./pages/SignalsPage'));
 const InboundPage    = lazy(() => import('./pages/InboundPage'));
-const ABMPage        = lazy(() => import('./pages/ABMPage').catch(() => ({ default: () => <ComingSoon name="ABM & TAM" /> })));
+const ABMPage        = () => <ComingSoon name="ABM & TAM" />;
 const ContactIntelPage = lazy(() => import('./pages/ContactIntelPage'));
 const AIAgentPage    = lazy(() => import('./pages/AIAgentPage'));
-const CRMPage        = lazy(() => import('./pages/CRMPage').catch(() => ({ default: () => <ComingSoon name="CRM Sync" /> })));
-const AnalyticsPage  = lazy(() => import('./pages/AnalyticsPage').catch(() => ({ default: () => <ComingSoon name="Analytics" /> })));
+const CRMPage        = () => <ComingSoon name="CRM Sync" />;
+const AnalyticsPage  = lazy(() => import('./pages/Analytics').catch(() => ({ default: () => <ComingSoon name="Analytics" /> })));
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false, staleTime: 30_000 } },

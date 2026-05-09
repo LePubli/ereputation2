@@ -1,80 +1,45 @@
-# Docker/runtime internals
-.dockerenv
-
 ```
 # Dependencies
 node_modules/
-frontend/node_modules/
 
-# Build artifacts
-dist/
-build/
-target/
-frontend/dist/
-frontend/.vite/
 # Environment
 .env
 .env.local
 .env.*
 
-# Logs and temp files
+# Logs
 *.log
-*.tmp
-logs/
-data/
 
-# Environment / secrets
-.env
-.env.local
-*.env.*
-!.env.example
+# Coverage
+coverage/
+htmlcov/
+.coverage
 
-# Editors / OS
-# Editors
+# IDE
 .vscode/
 .idea/
-.DS_Store
-Thumbs.db
+*.swp
+*.swo
 
 # Python
 __pycache__/
-*.py[cod]
+*.pyc
 *.pyo
 *.pyd
 .Python
-env/
-venv/
-.venv/
-.ENV
-.python-version
+*.so
+*.egg-info/
+.eggs/
 
 # Build outputs
 dist/
 build/
-*.egg-info/
-.eggs/
-
-# Testing
-.coverage
-htmlcov/
-.coverage.*
-.cache
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-nosetests.xml
-coverage.xml
-*.cover
-htmlcov/
-
-# Git internals from submodules/worktrees
-.git/modules/
-.nyc_output/
-coverage/
-
-# OS generated files
-.DS_Store
-Thumbs.db
+*.out
+*.exe
+*.dll
+*.so
+*.a
+*.obj
 
 # Compressed files
 *.zip
@@ -99,4 +64,26 @@ Thumbs.db
 *.tar.bz2
 *.tar.xz
 *.tar.zst
+
+# System
+.DS_Store
+Thumbs.db
+
+# Testing
+.pytest_cache/
+.mypy_cache/
+.nyc_output/
+coverage.xml
+*.gcda
+*.gcno
+
+# Node.js
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Temporary files
+*.tmp
+*.temp
+*~
 ```
