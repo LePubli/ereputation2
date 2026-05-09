@@ -1,0 +1,3 @@
+# Phase 5 — Contact Intelligence
+dnspython==2.7.0      # Résolution MX pour vérification SMTP
+unidecode==1.3.8      # Normalisation accents (déjà dans Phase 1)
