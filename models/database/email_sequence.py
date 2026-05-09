@@ -5,14 +5,6 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from models.database.base import Base, TimestampMixin, UUIDMixin
 
-class EmailSequence(Base, UUIDMixin, TimestampMixin):
-    __tablename__ = "email_sequences"
-    name: Mapped[str] = mapped_column(String(255), nullable=False)
-    description: Mapped[str|None] = mapped_column(Text, nullable=True)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    created_by: Mapped[UUID|None] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
-    steps: Mapped[list["SequenceStep"]] = relationship("SequenceStep", back_populates="sequence", cascade="all, delete-orphan")
-
 class SequenceStep(Base, UUIDMixin, TimestampMixin):
     __tablename__ = "sequence_steps"
     sequence_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("email_sequences.id", ondelete="CASCADE"), nullable=False)
@@ -23,6 +15,14 @@ class SequenceStep(Base, UUIDMixin, TimestampMixin):
     use_ai_personalization: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     ai_personalization_prompt: Mapped[str|None] = mapped_column(Text, nullable=True)
     sequence: Mapped["EmailSequence"] = relationship("EmailSequence", back_populates="steps")
+
+class EmailSequence(Base, UUIDMixin, TimestampMixin):
+    __tablename__ = "email_sequences"
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str|None] = mapped_column(Text, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_by: Mapped[UUID|None] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    steps: Mapped[list["SequenceStep"]] = relationship("SequenceStep", back_populates="sequence", cascade="all, delete-orphan")
 
 class SequenceContact(Base, UUIDMixin, TimestampMixin):
     __tablename__ = "sequence_contacts"
