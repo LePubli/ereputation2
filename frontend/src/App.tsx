@@ -4,31 +4,47 @@ import { lazy, Suspense } from 'react';
 import { AppShell } from './components/layout/AppShell';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
-import { Spinner } from './components/ui/Spinner';
 import { Toaster } from './components/ui/Toast';
 
-// Pages
-const Dashboard     = lazy(() => import('./pages/Dashboard'));
-const Login         = lazy(() => import('./pages/Login'));
-const TableView     = lazy(() => import('./pages/TableView'));
-const Pipeline      = lazy(() => import('./pages/Pipeline'));
-const Prospects     = lazy(() => import('./pages/Prospects'));
-const Plugins       = lazy(() => import('./pages/Plugins'));
-const Settings      = lazy(() => import('./pages/Settings'));
-const WebhooksPage  = lazy(() => import('./pages/WebhooksPage'));
-const SequencerPage = lazy(() => import('./pages/SequencerPage'));
-const SignalsPage   = lazy(() => import('./pages/SignalsPage'));
-const InboundPage   = lazy(() => import('./pages/InboundPage'));
+const Dashboard      = lazy(() => import('./pages/Dashboard'));
+const Login          = lazy(() => import('./pages/Login'));
+const TableView      = lazy(() => import('./pages/TableView'));
+const Pipeline       = lazy(() => import('./pages/Pipeline'));
+const Prospects      = lazy(() => import('./pages/Prospects'));
+const Plugins        = lazy(() => import('./pages/Plugins'));
+const Settings       = lazy(() => import('./pages/Settings'));
+const WebhooksPage   = lazy(() => import('./pages/WebhooksPage'));
+const SequencerPage  = lazy(() => import('./pages/SequencerPage'));
+const SignalsPage     = lazy(() => import('./pages/SignalsPage'));
+const InboundPage    = lazy(() => import('./pages/InboundPage'));
+const ABMPage        = lazy(() => import('./pages/ABMPage').catch(() => ({ default: () => <ComingSoon name="ABM & TAM" /> })));
+const ContactIntelPage = lazy(() => import('./pages/ContactIntelPage'));
+const AIAgentPage    = lazy(() => import('./pages/AIAgentPage'));
+const CRMPage        = lazy(() => import('./pages/CRMPage').catch(() => ({ default: () => <ComingSoon name="CRM Sync" /> })));
+const AnalyticsPage  = lazy(() => import('./pages/AnalyticsPage').catch(() => ({ default: () => <ComingSoon name="Analytics" /> })));
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false, staleTime: 30_000 } },
 });
 
-const Loading = () => (
-  <div className="flex items-center justify-center h-64">
-    <Spinner label="Chargement…" />
-  </div>
-);
+function Loading() {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', gap: 12 }}>
+      <div style={{ width: 20, height: 20, border: '2px solid var(--brand-200)', borderTopColor: 'var(--brand)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+      <span style={{ color: 'var(--tx-muted)', fontSize: 14 }}>Chargement…</span>
+    </div>
+  );
+}
+
+function ComingSoon({ name }: { name: string }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh', gap: 12 }}>
+      <div style={{ fontSize: 48 }}>🚧</div>
+      <h2 style={{ fontWeight: 600, color: 'var(--tx-primary)' }}>{name}</h2>
+      <p style={{ color: 'var(--tx-muted)', fontSize: 14 }}>Module en cours de déploiement</p>
+    </div>
+  );
+}
 
 function Protected({ children }: { children: React.ReactNode }) {
   return (
@@ -57,6 +73,11 @@ export default function App() {
             <Route path="/sequences"  element={<Protected><SequencerPage /></Protected>} />
             <Route path="/signals"    element={<Protected><SignalsPage /></Protected>} />
             <Route path="/inbound"    element={<Protected><InboundPage /></Protected>} />
+            <Route path="/abm"        element={<Protected><ABMPage /></Protected>} />
+            <Route path="/contacts"   element={<Protected><ContactIntelPage /></Protected>} />
+            <Route path="/agent"      element={<Protected><AIAgentPage /></Protected>} />
+            <Route path="/crm"        element={<Protected><CRMPage /></Protected>} />
+            <Route path="/analytics"  element={<Protected><AnalyticsPage /></Protected>} />
             <Route path="*"           element={<Navigate to="/" replace />} />
           </Routes>
         </ErrorBoundary>

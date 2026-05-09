@@ -1,110 +1,125 @@
+import { useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, Table2, Workflow, Users, Puzzle,
-  Settings as SettingsIcon, LogOut, Sparkles, Webhook,
-  Mail, Bell, ArrowDownToLine, Target, RefreshCw
+  LayoutDashboard, Table2, Workflow, Users, Puzzle, Settings,
+  LogOut, Sparkles, Webhook, Mail, Bell, ArrowDownToLine,
+  Target, RefreshCw, UserSearch, Zap, ChevronRight,
+  Bot, BarChart3, Search, Command
 } from 'lucide-react';
 import { useAuthStore } from '../../hooks/useAuth';
 
-const NAV_MAIN = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard, exact: true },
-  { to: '/table', label: 'Spreadsheet', icon: Table2, exact: false },
-  { to: '/pipeline', label: 'Pipeline', icon: Workflow, exact: false },
-  { to: '/prospects', label: 'Prospects', icon: Users, exact: false },
+const NAV = [
+  {
+    section: 'Principal',
+    items: [
+      { to: '/',         label: 'Dashboard',    icon: LayoutDashboard, exact: true },
+      { to: '/table',    label: 'Spreadsheet',  icon: Table2 },
+      { to: '/pipeline', label: 'Pipeline',     icon: Workflow },
+      { to: '/prospects',label: 'Prospects',    icon: Users },
+    ],
+  },
+  {
+    section: 'Marketing',
+    items: [
+      { to: '/signals',  label: 'Signals',      icon: Bell,             badge: 'new' },
+      { to: '/inbound',  label: 'Inbound',      icon: ArrowDownToLine },
+      { to: '/abm',      label: 'ABM & TAM',    icon: Target },
+    ],
+  },
+  {
+    section: 'Sales',
+    items: [
+      { to: '/contacts',   label: 'Contact Intel', icon: UserSearch },
+      { to: '/sequences',  label: 'Séquences',     icon: Mail },
+      { to: '/crm',        label: 'CRM Sync',      icon: RefreshCw },
+    ],
+  },
+  {
+    section: 'Intelligence',
+    items: [
+      { to: '/agent',    label: 'AI Agent',     icon: Bot },
+      { to: '/analytics',label: 'Analytics',   icon: BarChart3 },
+      { to: '/webhooks', label: 'Webhooks',     icon: Webhook },
+    ],
+  },
+  {
+    section: 'Système',
+    items: [
+      { to: '/plugins',  label: 'Plugins',      icon: Puzzle },
+      { to: '/settings', label: 'Paramètres',   icon: Settings },
+    ],
+  },
 ];
 
-const NAV_MARKETING = [
-  { to: '/signals', label: 'Signals', icon: Bell, exact: false },
-  { to: '/inbound', label: 'Inbound', icon: ArrowDownToLine, exact: false },
-  { to: '/abm', label: 'ABM / TAM', icon: Target, exact: false },
-];
+interface SidebarProps {
+  onOpenCommand?: () => void;
+}
 
-const NAV_SALES = [
-  { to: '/agent', label: 'AI Agent', icon: Sparkles, exact: false },
-  { to: '/sequences', label: 'Séquences', icon: Mail, exact: false },
-  { to: '/crm', label: 'CRM Sync', icon: RefreshCw, exact: false },
-];
-
-const NAV_SYSTEM = [
-  { to: '/webhooks', label: 'Webhooks', icon: Webhook, exact: false },
-  { to: '/plugins', label: 'Plugins', icon: Puzzle, exact: false },
-  { to: '/settings', label: 'Paramètres', icon: SettingsIcon, exact: false },
-];
-
-export function Sidebar() {
+export function Sidebar({ onOpenCommand }: SidebarProps) {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
-  const appName = import.meta.env.VITE_APP_NAME ?? 'B2B Prospector';
+  const appName = import.meta.env.VITE_APP_NAME || 'B2B Prospector';
+
+  const initials = user?.full_name
+    ? user.full_name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
+    : 'U';
 
   return (
-    <aside
-      style={{ background: 'var(--sidebar-bg)', color: 'var(--sidebar-text)', borderRight: '1px solid var(--sidebar-border)' }}
-      className="w-56 flex flex-col h-screen sticky top-0 flex-shrink-0"
-    >
+    <aside className="sidebar">
       {/* Logo */}
-      <div className="px-4 py-4" style={{ borderBottom: '1px solid var(--sidebar-border)' }}>
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 bg-blue-600 rounded text-white flex items-center justify-center font-bold text-xs flex-shrink-0">BP</div>
-          <div>
-            <div className="font-semibold text-sm" style={{ color: 'var(--sidebar-text)' }}>{appName}</div>
-            <div className="text-xs" style={{ color: 'var(--sidebar-muted)' }}>GTM Platform</div>
-          </div>
+      <div className="sidebar-logo">
+        <div className="sidebar-logo-icon">BP</div>
+        <div className="sidebar-wordmark">
+          <div className="sidebar-appname">{appName}</div>
+          <div className="sidebar-tagline">GTM Intelligence</div>
         </div>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-4">
-        <NavSection label="Général" items={NAV_MAIN} />
-        <NavSection label="Marketing" items={NAV_MARKETING} />
-        <NavSection label="Sales" items={NAV_SALES} />
-        <NavSection label="Système" items={NAV_SYSTEM} />
+      {/* Search / Command */}
+      <div className="sidebar-search" onClick={onOpenCommand}>
+        <Search size={13} style={{ color: 'var(--sidebar-muted)', flexShrink: 0 }} />
+        <span className="sidebar-search-text">Rechercher…</span>
+        <span className="sidebar-search-kbd">⌘K</span>
+      </div>
+
+      {/* Nav */}
+      <nav className="sidebar-nav">
+        {NAV.map(({ section, items }) => (
+          <div key={section} className="sidebar-section">
+            <div className="sidebar-section-label">{section}</div>
+            {items.map(({ to, label, icon: Icon, exact, badge }) => (
+              <NavLink
+                key={to}
+                to={to}
+                end={exact}
+                className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}
+              >
+                <Icon className="sidebar-link-icon" size={15} />
+                <span style={{ flex: 1 }}>{label}</span>
+                {badge === 'new' && (
+                  <span className="sidebar-link-badge">new</span>
+                )}
+              </NavLink>
+            ))}
+          </div>
+        ))}
       </nav>
 
-      {/* User footer */}
-      <div className="px-3 py-3" style={{ borderTop: '1px solid var(--sidebar-border)' }}>
+      {/* Footer */}
+      <div className="sidebar-footer">
         {user && (
-          <div className="mb-2 px-1">
-            <div className="text-xs font-medium truncate" style={{ color: 'var(--sidebar-text)' }}>{user.full_name}</div>
-            <div className="text-xs truncate" style={{ color: 'var(--sidebar-muted)' }}>{user.email}</div>
+          <div className="sidebar-user" onClick={async () => { await logout(); navigate('/login'); }}>
+            <div className="sidebar-avatar">{initials}</div>
+            <div className="sidebar-user-info" style={{ flex: 1, minWidth: 0 }}>
+              <div className="sidebar-user-name" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {user.full_name}
+              </div>
+              <div className="sidebar-user-role">{user.role}</div>
+            </div>
+            <LogOut size={13} style={{ color: 'var(--sidebar-muted)', flexShrink: 0 }} />
           </div>
         )}
-        <button
-          onClick={async () => { await logout(); navigate('/login'); }}
-          className="flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded transition"
-          style={{ color: '#ef4444' }}
-          onMouseEnter={e => (e.currentTarget.style.background = 'rgba(239,68,68,0.1)')}
-          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-        >
-          <LogOut className="w-3.5 h-3.5" />
-          Déconnexion
-        </button>
       </div>
     </aside>
-  );
-}
-
-function NavSection({ label, items }: { label: string; items: { to: string; label: string; icon: any; exact: boolean }[] }) {
-  return (
-    <div>
-      <p className="px-2 mb-1 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--sidebar-muted)', fontSize: 10 }}>{label}</p>
-      <div className="space-y-0.5">
-        {items.map(({ to, label, icon: Icon, exact }) => (
-          <NavLink key={to} to={to} end={exact}
-            style={({ isActive }) => ({
-              display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px',
-              borderRadius: 6, fontSize: 13, fontWeight: isActive ? 500 : 400,
-              textDecoration: 'none',
-              color: isActive ? '#fff' : 'var(--sidebar-text)',
-              background: isActive ? 'rgba(37,99,235,0.2)' : 'transparent',
-              transition: 'all 0.1s',
-            })}
-            onMouseEnter={e => { if (!e.currentTarget.getAttribute('aria-current')) e.currentTarget.style.background = 'var(--sidebar-hover)'; }}
-            onMouseLeave={e => { if (!e.currentTarget.getAttribute('aria-current')) e.currentTarget.style.background = 'transparent'; }}
-          >
-            <Icon size={13} />
-            {label}
-          </NavLink>
-        ))}
-      </div>
-    </div>
   );
 }
