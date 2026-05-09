@@ -7,23 +7,25 @@ import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import { Spinner } from './components/ui/Spinner';
 import { Toaster } from './components/ui/Toast';
 
-const Dashboard    = lazy(() => import('./pages/Dashboard'));
-const Login        = lazy(() => import('./pages/Login'));
-const TableView    = lazy(() => import('./pages/TableView'));
-const Pipeline     = lazy(() => import('./pages/Pipeline'));
-const Prospects    = lazy(() => import('./pages/Prospects'));
-const Plugins      = lazy(() => import('./pages/Plugins'));
-const Settings     = lazy(() => import('./pages/Settings'));
-const WebhooksPage = lazy(() => import('./pages/WebhooksPage'));
+// Pages
+const Dashboard     = lazy(() => import('./pages/Dashboard'));
+const Login         = lazy(() => import('./pages/Login'));
+const TableView     = lazy(() => import('./pages/TableView'));
+const Pipeline      = lazy(() => import('./pages/Pipeline'));
+const Prospects     = lazy(() => import('./pages/Prospects'));
+const Plugins       = lazy(() => import('./pages/Plugins'));
+const Settings      = lazy(() => import('./pages/Settings'));
+const WebhooksPage  = lazy(() => import('./pages/WebhooksPage'));
+const SequencerPage = lazy(() => import('./pages/SequencerPage'));
+const SignalsPage   = lazy(() => import('./pages/SignalsPage'));
+const InboundPage   = lazy(() => import('./pages/InboundPage'));
 
 const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: { retry: 1, refetchOnWindowFocus: false, staleTime: 30_000 },
-  },
+  defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false, staleTime: 30_000 } },
 });
 
 const Loading = () => (
-  <div className="flex items-center justify-center h-full min-h-64">
+  <div className="flex items-center justify-center h-64">
     <Spinner label="Chargement…" />
   </div>
 );
@@ -44,7 +46,7 @@ export default function App() {
       <BrowserRouter>
         <ErrorBoundary>
           <Routes>
-            <Route path="/login" element={<Suspense fallback={<Loading />}><Login /></Suspense>} />
+            <Route path="/login"      element={<Suspense fallback={<Loading />}><Login /></Suspense>} />
             <Route path="/"           element={<Protected><Dashboard /></Protected>} />
             <Route path="/table"      element={<Protected><TableView /></Protected>} />
             <Route path="/pipeline"   element={<Protected><Pipeline /></Protected>} />
@@ -52,6 +54,9 @@ export default function App() {
             <Route path="/plugins"    element={<Protected><Plugins /></Protected>} />
             <Route path="/settings"   element={<Protected><Settings /></Protected>} />
             <Route path="/webhooks"   element={<Protected><WebhooksPage /></Protected>} />
+            <Route path="/sequences"  element={<Protected><SequencerPage /></Protected>} />
+            <Route path="/signals"    element={<Protected><SignalsPage /></Protected>} />
+            <Route path="/inbound"    element={<Protected><InboundPage /></Protected>} />
             <Route path="*"           element={<Navigate to="/" replace />} />
           </Routes>
         </ErrorBoundary>

@@ -1,23 +1,36 @@
-"""Plugin loader Phase 3."""
+"""Plugin loader Phase 4 — tous les plugins inclus."""
 from typing import TYPE_CHECKING
 from loguru import logger
+
 if TYPE_CHECKING:
     from fastapi import FastAPI
 
-CORE_PLUGINS = ["auth", "system", "prospects", "pipeline", "dashboard", "activities", "agent", "webhooks"]
+CORE_PLUGINS = [
+    "auth", "system", "prospects", "pipeline", "dashboard",
+    "activities", "agent", "webhooks",
+    # Phase 4
+    "sequencer", "signals", "inbound", "abm", "crm_sync",
+]
 
 async def load_plugins(app: "FastAPI") -> dict[str, bool]:
     loaded: dict[str, bool] = {}
     active_set = set(CORE_PLUGINS)
+
     try:
         from sqlalchemy import select
         from core.database import AsyncSessionLocal
         from models.database.plugin_state import PluginState
         async with AsyncSessionLocal() as db:
-            result = await db.execute(select(PluginState.name).where(PluginState.is_active.is_(True)))
-            active_set = {row[0] for row in result.all()} | {"auth","activities","agent","webhooks"}
+            result = await db.execute(
+                select(PluginState.name).where(PluginState.is_active.is_(True))
+            )
+            db_active = {row[0] for row in result.all()}
+            # Ces plugins sont toujours actifs (sécurité / infrastructure)
+            always_active = {"auth", "system", "sequencer", "signals", "inbound", "abm", "crm_sync"}
+            active_set = db_active | always_active
     except Exception as e:
-        logger.warning(f"plugin_states indisponible ({e})")
+        logger.warning(f"plugin_states indisponible ({e}) — tous actifs par défaut")
+
     for name in CORE_PLUGINS:
         if name not in active_set:
             loaded[name] = False
@@ -34,4 +47,5 @@ async def load_plugins(app: "FastAPI") -> dict[str, bool]:
         except Exception as e:
             logger.exception(f"✗ Plugin {name}: {e}")
             loaded[name] = False
+
     return loaded
