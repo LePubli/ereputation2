@@ -38,7 +38,7 @@ class SequenceContact(Base, UUIDMixin, TimestampMixin):
     bounced: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     unsubscribed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     last_sent_at: Mapped[datetime|None] = mapped_column(DateTime(timezone=True), nullable=True)
-    metadata: Mapped[dict] = mapped_column(JSONB, default=dict, nullable=False)
+    seq_metadata: Mapped[dict] = mapped_column(JSONB, default=dict, nullable=False)
 
 class EmailSend(Base, UUIDMixin, TimestampMixin):
     __tablename__ = "email_sends"
