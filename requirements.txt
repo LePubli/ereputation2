@@ -54,5 +54,7 @@ python-dotenv==1.0.1
 orjson==3.10.12
 tzdata==2024.2
 
-openpyxl>=3.1.0
 websockets>=12.0
+
+# Phase 5 — Contact Intelligence
+dnspython==2.7.0      # Résolution MX pour vérification SMTP
