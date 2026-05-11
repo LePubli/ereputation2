@@ -21,7 +21,7 @@ from models.schemas.prospect import (
     ProspectUpdate,
 )
 from plugins.prospects.service import ProspectService
-
+from .bulk_routes import router as bulk_router
 router = APIRouter(prefix="/api/v1/prospects", tags=["prospects"])
 
 
