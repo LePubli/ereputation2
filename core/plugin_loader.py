@@ -10,7 +10,7 @@ CORE_PLUGINS = [
     "activities", "agent", "webhooks",
     # Phase 4
     "sequencer", "signals", "inbound", "abm", "crm_sync",
-    "plugins.analytics", "plugins.sourcing",
+    "analytics", "sourcing",
 ]
 
 async def load_plugins(app: "FastAPI") -> dict[str, bool]:
@@ -27,7 +27,12 @@ async def load_plugins(app: "FastAPI") -> dict[str, bool]:
             )
             db_active = {row[0] for row in result.all()}
             # Ces plugins sont toujours actifs (sécurité / infrastructure)
-            always_active = {"auth", "system", "sequencer", "signals", "inbound", "abm", "crm_sync"}
+            always_active = {
+    "auth", "system", "sequencer", "signals", "inbound",
+    "abm", "crm_sync",
+    # Phase 5-6
+    "analytics", "sourcing", "export", "notifications",
+}
             active_set = db_active | always_active
     except Exception as e:
         logger.warning(f"plugin_states indisponible ({e}) — tous actifs par défaut")
