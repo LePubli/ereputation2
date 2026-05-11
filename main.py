@@ -4,6 +4,8 @@ Point d'entrée FastAPI — B2B Prospector.
 Lance avec :
     uvicorn main:app --host 0.0.0.0 --port 8000
 """
+from plugins.notifications.ws_routes import router as ws_router
+app.include_router(ws_router)
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
