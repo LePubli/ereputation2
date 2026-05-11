@@ -10,7 +10,7 @@ CORE_PLUGINS = [
     "activities", "agent", "webhooks",
     # Phase 4
     "sequencer", "signals", "inbound", "abm", "crm_sync",
-    "analytics", "sourcing",
+    "analytics", "sourcing", "export", "notifications",
 ]
 
 async def load_plugins(app: "FastAPI") -> dict[str, bool]:
