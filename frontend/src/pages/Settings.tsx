@@ -1,6 +1,6 @@
 import { CheckCircle2, AlertTriangle, XCircle } from 'lucide-react';
 import { useSystemInfo } from '../hooks/usePlugins';
-import { PageHeader } from '../components/layout/AppShell';
+import { PageHeader } from '../components/ui/PageHeader';
 import { Skeleton } from '../components/ui/Skeleton';
 
 export default function Settings() {

@@ -1,5 +1,5 @@
 import { SpreadsheetView } from '../components/spreadsheet/SpreadsheetView';
-import { PageHeader } from '../components/layout/AppShell';
+import { PageHeader } from '../components/ui/PageHeader';
 
 export default function TableView() {
   return (

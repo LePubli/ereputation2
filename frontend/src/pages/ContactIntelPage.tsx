@@ -3,7 +3,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { Search, CheckCircle2, XCircle, Loader2, Zap, Globe, Mail, Phone, Linkedin, ExternalLink, Settings } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiClient } from '../api/client';
-import { PageHeader } from '../components/layout/AppShell';
+import { PageHeader } from '../components/ui/PageHeader';
 
 interface ContactResult {
   contact: {

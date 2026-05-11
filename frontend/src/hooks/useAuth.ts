@@ -90,3 +90,9 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// Hook helper for components
+export function useAuth() {
+  const { user, isAuthenticated, logout } = useAuthStore();
+  return { user, isAuthenticated, logout };
+}

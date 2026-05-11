@@ -1,6 +1,6 @@
 import { Puzzle, Power } from 'lucide-react';
 import { usePlugins, useTogglePlugin } from '../hooks/usePlugins';
-import { PageHeader } from '../components/layout/AppShell';
+import { PageHeader } from '../components/ui/PageHeader';
 import { Skeleton } from '../components/ui/Skeleton';
 import { EmptyState } from '../components/ui/EmptyState';
 

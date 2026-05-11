@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Plus, Download, Users } from 'lucide-react';
 import { useProspects } from '../hooks/useProspects';
-import { PageHeader } from '../components/layout/AppShell';
+import { PageHeader } from '../components/ui/PageHeader';
 import { Skeleton } from '../components/ui/Skeleton';
 import { EmptyState } from '../components/ui/EmptyState';
 import { AddProspectModal } from '../components/prospects/AddProspectModal';

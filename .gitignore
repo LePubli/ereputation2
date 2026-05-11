@@ -1,64 +1,36 @@
-```gitignore
+```
+# Build artifacts
+frontend/dist/
+frontend/build/
+
 # Dependencies
-node_modules/
+frontend/node_modules/
 
-# Build outputs
-dist/
-build/
-target/
-
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-env/
-venv/
-.venv/
-.ENV
-.python-version
-
-# Logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# OS generated files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-
-# Environment variables
+# Environment
 .env
 .env.local
 .env.*
-!env.example
 
-# IDE
+# Editor/IDE
 .vscode/
 .idea/
 *.swp
 *.swo
+*.tmp
+
+# Logs
+*.log
+
+# Python (if present)
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
 
 # Coverage
 coverage/
 htmlcov/
 .coverage
-*.coverage
-
-# MyPy
-.mypy_cache/
-.dmypy.json
-dmypy.json
-
-# PyTest
-.pytest_cache/
 
 # Compressed files
 *.zip
