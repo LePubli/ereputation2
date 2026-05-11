@@ -5,7 +5,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LineCh
 import { useDashboardStats } from '../hooks/useDashboard';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
-import { PageHeader } from '../components/layout/AppShell';
+import { PageHeader } from '../components/ui/PageHeader';
 import { formatCurrency, formatNumber, formatPercent } from '../lib/utils';
 
 const CustomTooltip = ({ active, payload, label }: any) => {

@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Send, Loader2, Sparkles, Zap, Bot, ChevronDown, Copy, CheckCheck, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiClient } from '../api/client';
-import { PageHeader } from '../components/layout/AppShell';
+import { PageHeader } from '../components/ui/PageHeader';
 
 const PROVIDERS = [
   { id: 'auto',   label: 'Auto (meilleur dispo)', icon: '⚡' },

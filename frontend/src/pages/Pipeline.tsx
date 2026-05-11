@@ -1,4 +1,4 @@
-import { PageHeader } from '../components/layout/AppShell';
+import { PageHeader } from '../components/ui/PageHeader';
 import { KanbanBoard } from '../components/pipeline/KanbanBoard';
 import { usePipelineBoard } from '../hooks/usePipeline';
 
