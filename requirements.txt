@@ -53,3 +53,6 @@ python-dotenv==1.0.1
 # --- Misc ---
 orjson==3.10.12
 tzdata==2024.2
+
+openpyxl>=3.1.0
+websockets>=12.0
