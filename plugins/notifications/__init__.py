@@ -1,5 +1,5 @@
-from fastapi import APIRouter
-from .routes import router as notifications_router
+from .ws_routes import router
+__all__ = ["router"]
 
 def create_plugin():
     r = APIRouter()
