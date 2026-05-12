@@ -1,7 +1,6 @@
 from fastapi import APIRouter
-from .routes import router as analytics_router
+from .routes import router as _r
 
-def create_plugin():
-    r = APIRouter()
-    r.include_router(analytics_router, prefix="/analytics", tags=["analytics"])
-    return r
+router = APIRouter()
+router.include_router(_r, prefix="/analytics", tags=["analytics"])
+__all__ = ["router"]
