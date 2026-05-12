@@ -14,6 +14,7 @@ depends_on = None
 
 
 def upgrade():
+    # asyncpg n'accepte qu'une commande par execute() — séparer chaque statement
     op.execute("""
         CREATE TABLE IF NOT EXISTS sourcing_jobs (
             id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -28,13 +29,11 @@ def upgrade():
             created_by   UUID,
             created_at   TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
             completed_at TIMESTAMP WITH TIME ZONE
-        );
-        CREATE INDEX IF NOT EXISTS idx_sourcing_jobs_status
-            ON sourcing_jobs(status);
-        CREATE INDEX IF NOT EXISTS idx_sourcing_jobs_created
-            ON sourcing_jobs(created_at DESC);
+        )
     """)
+    op.execute("CREATE INDEX IF NOT EXISTS idx_sourcing_jobs_status ON sourcing_jobs(status)")
+    op.execute("CREATE INDEX IF NOT EXISTS idx_sourcing_jobs_created ON sourcing_jobs(created_at DESC)")
 
 
 def downgrade():
-    op.execute("DROP TABLE IF EXISTS sourcing_jobs CASCADE;")
+    op.execute("DROP TABLE IF EXISTS sourcing_jobs CASCADE")
