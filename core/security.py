@@ -61,3 +61,18 @@ def decode_token(token: str) -> dict[str, Any] | None:
         return jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
     except JWTError:
         return None
+
+def verify_token(token: str) -> dict:
+    """Décode et vérifie un JWT — usage WebSocket."""
+    from jose import jwt, JWTError
+    from core.config import settings
+
+    try:
+        payload = jwt.decode(
+            token,
+            settings.SECRET_KEY,
+            algorithms=[settings.ALGORITHM],
+        )
+        return payload
+    except JWTError as e:
+        raise ValueError(f"Token invalide: {e}") 
