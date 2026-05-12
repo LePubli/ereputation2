@@ -1,7 +1,6 @@
 from fastapi import APIRouter
-from .routes import router as sourcing_router
+from .routes import router as _r
 
-def create_plugin():
-    r = APIRouter()
-    r.include_router(sourcing_router, prefix="/sourcing", tags=["sourcing"])
-    return r
+router = APIRouter()
+router.include_router(_r, prefix="/sourcing", tags=["sourcing"])
+__all__ = ["router"]
