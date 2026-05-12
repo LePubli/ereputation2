@@ -3,10 +3,16 @@ set -e
 
 echo "⏳ Waiting for database..."
 python -c "
-import time, psycopg2, os
+import time, os
+
+url = os.environ['DATABASE_URL']
+# psycopg2 n'accepte pas +asyncpg, on le retire
+url = url.replace('postgresql+asyncpg://', 'postgresql://')
+
+import psycopg2
 for i in range(30):
     try:
-        psycopg2.connect(os.environ['DATABASE_URL'])
+        psycopg2.connect(url)
         print('✅ Database ready')
         break
     except Exception as e:
@@ -20,4 +26,4 @@ else:
 echo "🚀 Running Alembic migrations..."
 alembic upgrade head
 
-echo "✅ Migrations complete."
+echo "✅ Migrations complete." 
