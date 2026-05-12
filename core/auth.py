@@ -61,6 +61,10 @@ async def get_current_user(
     return user
 
 
+# Alias pour les plugins qui utilisent l'ancien nom
+get_current_active_user = get_current_user
+
+
 async def get_current_user_optional(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
     db: AsyncSession = Depends(get_db),
