@@ -3,19 +3,16 @@ import type { AuthUser, TokenResponse } from '../types';
 
 export const authApi = {
   login: async (email: string, password: string): Promise<TokenResponse> => {
-    const { data } = await apiClient.post<TokenResponse>('/auth/login', { email, password });
-    return data;
+    return apiClient.login(email, password) as Promise<TokenResponse>;
   },
   refresh: async (refresh_token: string): Promise<TokenResponse> => {
-    const { data } = await apiClient.post<TokenResponse>('/auth/refresh', { refresh_token });
-    return data;
+    return apiClient.post<TokenResponse>('/auth/refresh', { refresh_token });
   },
   logout: async (refresh_token: string): Promise<void> => {
     await apiClient.post('/auth/logout', { refresh_token });
   },
   me: async (): Promise<AuthUser> => {
-    const { data } = await apiClient.get<AuthUser>('/auth/me');
-    return data;
+    return apiClient.get<AuthUser>('/auth/me');
   },
   changePassword: async (current_password: string, new_password: string): Promise<void> => {
     await apiClient.post('/auth/change-password', { current_password, new_password });
