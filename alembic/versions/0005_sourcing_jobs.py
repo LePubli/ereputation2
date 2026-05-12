@@ -1,13 +1,14 @@
 """add sourcing_jobs table
 
-Revision ID: 0005_sourcing_jobs
-Revises: 0004_sequencer_signals_inbound_abm
-Create Date: 2025-01-01 00:00:00
+Revision ID: 0005
+Revises: 0004
+Create Date: 2026-05-11
 """
+from typing import Union
 from alembic import op
 
-revision = '0005_sourcing_jobs'
-down_revision = None   # ← on va corriger cette ligne
+revision: str = "0005"
+down_revision: Union[str, None] = "0004"
 branch_labels = None
 depends_on = None
 
@@ -28,8 +29,10 @@ def upgrade():
             created_at   TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
             completed_at TIMESTAMP WITH TIME ZONE
         );
-        CREATE INDEX IF NOT EXISTS idx_sourcing_jobs_status ON sourcing_jobs(status);
-        CREATE INDEX IF NOT EXISTS idx_sourcing_jobs_created ON sourcing_jobs(created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_sourcing_jobs_status
+            ON sourcing_jobs(status);
+        CREATE INDEX IF NOT EXISTS idx_sourcing_jobs_created
+            ON sourcing_jobs(created_at DESC);
     """)
 
 
