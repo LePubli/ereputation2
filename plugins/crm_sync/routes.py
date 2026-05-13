@@ -24,7 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.auth import CurrentUser
 from core.database import get_db
 
-router = APIRouter(prefix="/api/v1/crm", tags=["crm"])
+router = APIRouter(prefix="/api/v1/crm-sync", tags=["crm_sync"])
 
 HUBSPOT_API = "https://api.hubapi.com"
 
