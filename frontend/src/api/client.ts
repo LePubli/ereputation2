@@ -50,7 +50,6 @@ class ApiClient {
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
 
-    // Try token refresh on 401
     if (response.status === 401 && !isRetry) {
       const refreshed = await this.tryRefresh();
       if (refreshed) {
@@ -71,7 +70,6 @@ class ApiClient {
       throw new ApiError(response.status, errorMsg);
     }
 
-    // Handle empty responses
     const contentType = response.headers.get('content-type');
     if (!contentType?.includes('application/json')) {
       return null as T;
@@ -113,8 +111,6 @@ class ApiClient {
     return false;
   }
 
-  // ── HTTP methods ──
-
   get<T = unknown>(path: string): Promise<T> {
     return this.request<T>('GET', path);
   }
@@ -135,8 +131,6 @@ class ApiClient {
     return this.request<T>('DELETE', path);
   }
 
-  // ── Binary / Blob ──
-
   async getBlob(path: string): Promise<Blob> {
     const headers: Record<string, string> = {};
     if (this.accessToken) {
@@ -152,30 +146,25 @@ class ApiClient {
     return response.blob();
   }
 
-  // ── Auth helpers ──
+  async login(email: string, password: string): Promise<{ access_token: string; refresh_token?: string }> {
+    const response = await fetch(`${API_BASE}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
 
- async login(email: string, password: string): Promise<{ access_token: string; refresh_token?: string }> {
-  const response = await fetch(`${API_BASE}/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  });
-
-  if (!response.ok) {
-    throw new ApiError(response.status, 'Identifiants invalides');
-  }
-
-  const data = await response.json();
-
-  if (data.access_token) {
-    this.setToken(data.access_token);
-    if (data.refresh_token) {
-      localStorage.setItem('refresh_token', data.refresh_token);
+    if (!response.ok) {
+      throw new ApiError(response.status, 'Identifiants invalides');
     }
-  }
 
-  return data;
-}
+    const data = await response.json();
+
+    if (data.access_token) {
+      this.setToken(data.access_token);
+      if (data.refresh_token) {
+        localStorage.setItem('refresh_token', data.refresh_token);
+      }
+    }
 
     return data;
   }
