@@ -8,14 +8,14 @@ if TYPE_CHECKING:
 CORE_PLUGINS = [
     "auth", "system", "prospects", "pipeline", "dashboard",
     "activities", "agent", "webhooks",
-    # Phase 4
     "sequencer", "signals", "inbound", "abm", "crm_sync",
     "analytics", "sourcing", "export", "notifications",
 ]
 
+
 async def load_plugins(app: "FastAPI") -> dict[str, bool]:
     loaded: dict[str, bool] = {}
-    active_set = set(CORE_PLUGINS)
+    active_set = set(CORE_PLUGINS)  # par défaut, tout actif
 
     try:
         from sqlalchemy import select
@@ -26,13 +26,7 @@ async def load_plugins(app: "FastAPI") -> dict[str, bool]:
                 select(PluginState.name).where(PluginState.is_active.is_(True))
             )
             db_active = {row[0] for row in result.all()}
-            # Ces plugins sont toujours actifs (sécurité / infrastructure)
-            always_active = {
-    "auth", "system", "sequencer", "signals", "inbound",
-    "abm", "crm_sync",
-    # Phase 5-6
-    "analytics", "sourcing", "export", "notifications",
-}
+            always_active = set(CORE_PLUGINS)  # tous actifs par défaut
             active_set = db_active | always_active
     except Exception as e:
         logger.warning(f"plugin_states indisponible ({e}) — tous actifs par défaut")
