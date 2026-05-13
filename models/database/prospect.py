@@ -91,7 +91,14 @@ class Prospect(Base, UUIDMixin, TimestampMixin):
         back_populates="prospect",
         cascade="all, delete-orphan",
     )
-
+    
+    activities: Mapped[list["Activity"]] = relationship(  # type: ignore  # noqa: F821
+        "Activity",
+        back_populates="prospect",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+    
     __table_args__ = (
         Index("ix_prospects_search", "company_name", "siren", "siret", "city"),
     )
