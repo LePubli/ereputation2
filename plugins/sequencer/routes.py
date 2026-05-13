@@ -29,7 +29,7 @@ from core.auth import CurrentUser
 from core.config import settings
 from core.database import get_db
 
-router = APIRouter(prefix="/api/v1/sequences", tags=["sequencer"])
+router = APIRouter(prefix="/api/v1/sequencer/sequences", tags=["sequencer"])
 
 
 # --- Schémas ---
