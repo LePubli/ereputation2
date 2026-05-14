@@ -336,8 +336,8 @@ async def seed_activities(db, user, prospects_map):
                 user_id=user.id,
                 type=random.choice(activity_types),
                 title=f"Échange avec {name}",
-                description=f"Suivi commercial — {random.choice(['discussion budget', 'présentation produit', 'envoi proposition', 'follow-up'])}",
-                completed=True,
+                body=f"Suivi commercial — {random.choice(['discussion budget', 'présentation produit', 'envoi proposition', 'follow-up'])}",
+                is_completed=True,
                 completed_at=datetime.now(timezone.utc) - timedelta(days=random.randint(1, 30)),
             ))
             count += 1
