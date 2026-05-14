@@ -14,20 +14,23 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Seules les dépendances nécessaires à alembic + psycopg2
 RUN pip install --no-cache-dir \
     alembic==1.13.3 \
     sqlalchemy[asyncio]==2.0.36 \
     asyncpg==0.30.0 \
     psycopg2-binary==2.9.10 \
     python-dotenv==1.0.1 \
-    loguru==0.7.2
+    loguru==0.7.2 \
+    passlib[bcrypt]==1.7.4 \
+    bcrypt==4.0.1 \
+    pydantic==2.9.2 \
+    pydantic-settings==2.6.1
 
 COPY alembic/ ./alembic/
 COPY alembic.ini ./
 COPY core/ ./core/
 COPY models/ ./models/
-COPY scripts/migrate.sh ./scripts/migrate.sh
+COPY scripts/ ./scripts/
 
 RUN chmod +x ./scripts/migrate.sh
 
