@@ -2,7 +2,6 @@
 Plugin Sourcing — Gestion des jobs de scraping en masse
 """
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
-from sqlalchemy.orm import Session
 from sqlalchemy import text
 from pydantic import BaseModel
 from typing import Optional, Dict, Any, List
@@ -39,7 +38,7 @@ _JOBS: Dict[str, Dict[str, Any]] = {}
 async def create_job(
     payload: SourcingJobCreate,
     background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db),
+    db = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
     """Lance un nouveau job de scraping en arrière-plan"""
@@ -85,7 +84,7 @@ async def create_job(
 @router.get("/jobs")
 async def list_jobs(
     limit: int = 20,
-    db: Session = Depends(get_db),
+    db = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
     """Liste les jobs récents (mémoire + DB)"""
@@ -140,7 +139,7 @@ async def cancel_job(
 async def run_scraping_job(
     job_id: str,
     payload: SourcingJobCreate,
-    db: Session,
+    db,
 ):
     """Exécute le scraping dans un thread de background"""
     job = _JOBS.get(job_id)
