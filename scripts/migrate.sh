@@ -4,11 +4,7 @@ set -e
 echo "⏳ Waiting for database..."
 python -c "
 import time, os
-
-url = os.environ['DATABASE_URL']
-# psycopg2 n'accepte pas +asyncpg, on le retire
-url = url.replace('postgresql+asyncpg://', 'postgresql://')
-
+url = os.environ['DATABASE_URL'].replace('postgresql+asyncpg://', 'postgresql://')
 import psycopg2
 for i in range(30):
     try:
@@ -25,5 +21,8 @@ else:
 
 echo "🚀 Running Alembic migrations..."
 alembic upgrade head
+echo "✅ Migrations complete."
 
-echo "✅ Migrations complete." 
+echo "🌱 Running seed..."
+python -m scripts.seed || echo "⚠️  Seed failed (non-blocking)"
+echo "✅ Seed complete."
