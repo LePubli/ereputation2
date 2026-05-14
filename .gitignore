@@ -1,1 +1,49 @@
-Nothing should be ignored since only a Python script file (`scripts/seed.py`) was modified and no build artifacts, dependencies, or temporary files were present in the changes.
+```
+# Dependencies
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+.env
+.env.local
+.env.*
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Logs
+*.log
+
+# Editor/IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Testing
+.coverage
+htmlcov/
+.coverage.*
+.cache
+.pytest_cache/
+.mypy_cache/
+
+# Distribution / packaging
+*.tar.gz
+*.whl
+pip-log.txt
+pip-delete-this-directory.txt
+
+# System files
+.DS_Store
+Thumbs.db
+```

@@ -2,8 +2,7 @@
 Plugin Analytics — KPIs et reporting B2B Prospector
 """
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy.orm import Session
-from sqlalchemy import func, text
+from sqlalchemy import text
 from datetime import datetime, timedelta
 from typing import Optional
 import logging
@@ -19,7 +18,7 @@ router = APIRouter()
 @router.get("/kpis")
 async def get_kpis(
     period: str = Query("30d", description="7d, 30d, 90d, all"),
-    db: Session = Depends(get_db),
+    db = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
     """Retourne les KPIs principaux de la base prospects"""
@@ -34,11 +33,6 @@ async def get_kpis(
             since = now - timedelta(days=90)
         else:
             since = None
-
-        # Base query helper
-        def base_q(table="prospects"):
-            q = db.execute(text(f"SELECT COUNT(*) FROM {table}"))
-            return q.scalar() or 0
 
         # Total prospects
         total = db.execute(text("SELECT COUNT(*) FROM prospects")).scalar() or 0
@@ -161,7 +155,7 @@ async def get_kpis(
 
 @router.get("/export/csv")
 async def export_analytics_csv(
-    db: Session = Depends(get_db),
+    db = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
     """Export rapport analytics en CSV"""
