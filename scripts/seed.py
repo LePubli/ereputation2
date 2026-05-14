@@ -99,17 +99,17 @@ DEMO_SEQUENCES = [
         "name": "Onboarding Cold Email — 5 jours",
         "description": "Séquence standard pour cold prospects, 4 emails sur 5 jours",
         "steps": [
-            {"step_order": 1, "delay_days": 0, "subject": "{{company_name}}, une question rapide", "body": "Bonjour {{first_name}},\n\nJe travaille avec des entreprises comme la vôtre pour [bénéfice].\n\nÊtes-vous disponible 15 min cette semaine ?\n\nCordialement,"},
-            {"step_order": 2, "delay_days": 2, "subject": "Rebond — {{company_name}}", "body": "Bonjour {{first_name}},\n\nJe n'ai pas eu de retour sur mon précédent message.\n\nUn créneau bref serait précieux.\n\nMerci,"},
-            {"step_order": 3, "delay_days": 4, "subject": "Dernier rappel — {{company_name}}", "body": "{{first_name}},\n\nDernière relance de ma part.\n\nSi le sujet n'est pas pertinent, indiquez-le moi simplement.\n\nCordialement,"},
+            {"step_number": 1, "wait_days": 0, "subject_template": "{{company_name}}, une question rapide", "body_template": "Bonjour {{first_name}},\n\nJe travaille avec des entreprises comme la vôtre pour [bénéfice].\n\nÊtes-vous disponible 15 min cette semaine ?\n\nCordialement,"},
+            {"step_number": 2, "wait_days": 2, "subject_template": "Rebond — {{company_name}}", "body_template": "Bonjour {{first_name}},\n\nJe n'ai pas eu de retour sur mon précédent message.\n\nUn créneau bref serait précieux.\n\nMerci,"},
+            {"step_number": 3, "wait_days": 4, "subject_template": "Dernier rappel — {{company_name}}", "body_template": "{{first_name}},\n\nDernière relance de ma part.\n\nSi le sujet n'est pas pertinent, indiquez-le moi simplement.\n\nCordialement,"},
         ],
     },
     {
         "name": "Nurture Warm Leads — 3 emails",
         "description": "Pour prospects WARM en négociation",
         "steps": [
-            {"step_order": 1, "delay_days": 0, "subject": "Étude de cas {{naf_label}}", "body": "Bonjour {{first_name}},\n\nNous avons aidé une entreprise similaire à atteindre [résultat].\n\nVoici l'étude de cas : [lien]\n\nQu'en pensez-vous ?"},
-            {"step_order": 2, "delay_days": 3, "subject": "Ressource pour {{company_name}}", "body": "Bonjour,\n\nVoici un guide qui pourrait vous intéresser.\n\nÀ bientôt,"},
+            {"step_number": 1, "wait_days": 0, "subject_template": "Étude de cas {{naf_label}}", "body_template": "Bonjour {{first_name}},\n\nNous avons aidé une entreprise similaire à atteindre [résultat].\n\nVoici l'étude de cas : [lien]\n\nQu'en pensez-vous ?"},
+            {"step_number": 2, "wait_days": 3, "subject_template": "Ressource pour {{company_name}}", "body_template": "Bonjour,\n\nVoici un guide qui pourrait vous intéresser.\n\nÀ bientôt,"},
         ],
     },
 ]
