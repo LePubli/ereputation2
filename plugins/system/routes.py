@@ -92,10 +92,10 @@ async def system_info(db: AsyncSession = Depends(get_db)):
 
 
 # =============================================================================
-# /plugins
+# /system/plugins
 # =============================================================================
 
-@router.get("/plugins")
+@router.get("/system/plugins")
 async def list_plugins(db: AsyncSession = Depends(get_db)):
     """Liste tous les plugins (état persisté en BDD)."""
     stmt = select(PluginState).order_by(PluginState.name)
@@ -117,7 +117,7 @@ async def list_plugins(db: AsyncSession = Depends(get_db)):
     }
 
 
-@router.post("/plugins/{name}/toggle")
+@router.post("/system/plugins/{name}/toggle")
 async def toggle_plugin(name: str, db: AsyncSession = Depends(get_db)):
     """Active/désactive un plugin (changement effectif au prochain restart)."""
     stmt = select(PluginState).where(PluginState.name == name)
