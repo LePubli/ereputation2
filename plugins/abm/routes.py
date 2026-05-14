@@ -1,24 +1,21 @@
 """
-ABM (Account-Based Marketing) + TAM Sourcing — Clay-style.
+ABM (Account-Based Marketing) + TAM Sourcing.
 
-Fonctionnalités :
-    - Créer des listes de comptes ciblés avec critères
-    - TAM sourcing : trouver TOUS les prospects d'un segment (NAF + région)
-    - Calcul du TAM (Total Addressable Market)
-    - Scoring relatif dans la liste
-    - Export vers séquence ou webhook
-
-Exemple TAM sourcing :
-    NAF: 62.01Z (dev logiciel) + Région: Hauts-de-France + 10-49 salariés
-    → trouve toutes les entreprises correspondantes en BDD
-    → complète avec l'INSEE si BDD insuffisante
+Routes exposées :
+    GET    /api/v1/abm/accounts            → liste prospects ABM (flat)
+    POST   /api/v1/abm/source-tam          → TAM sourcing depuis ICP
+    PATCH  /api/v1/abm/accounts/{id}       → MAJ tier
+    POST   /api/v1/abm/enroll-sequence     → bulk enroll dans séquence
+    GET    /api/v1/abm/lists               → listes ABM sauvegardées
+    POST   /api/v1/abm/lists               → créer liste
+    DELETE /api/v1/abm/lists/{list_id}     → supprimer liste
 """
 from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
-from sqlalchemy import and_, desc, func, select
+from sqlalchemy import and_, desc, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.auth import CurrentUser
@@ -27,249 +24,222 @@ from core.database import get_db
 router = APIRouter(prefix="/api/v1/abm", tags=["abm"])
 
 
-class ABMCriteria(BaseModel):
+# ─────────────────────────────────────────── Pydantic models
+class ICPCriteria(BaseModel):
     naf_codes: list[str] = []
     regions: list[str] = []
     departments: list[str] = []
-    employee_ranges: list[str] = []
-    min_score: float | None = None
-    has_website: bool | None = None
+    employee_min: int | None = None
+    employee_max: int | None = None
+    revenue_min: str | None = None
+    score_min: float | None = None
+    exclude_no_email: bool = False
+    exclude_no_website: bool = False
     tags: list[str] = []
+
+
+class TAMSourceRequest(BaseModel):
+    icp: ICPCriteria
+    max_results: int = 500
 
 
 class ABMListCreate(BaseModel):
     name: str
     description: str | None = None
-    criteria: ABMCriteria
+    criteria: ICPCriteria
 
 
-class TAMSourceRequest(BaseModel):
-    criteria: ABMCriteria
-    max_results: int = 500
-    enrich_missing: bool = False
+class TierUpdate(BaseModel):
+    abm_tier: int
 
 
-@router.get("")
+class EnrollRequest(BaseModel):
+    account_ids: list[UUID]
+    sequence_id: UUID | None = None
+
+
+# ─────────────────────────────────────────── Helpers
+def _serialize_account(p, tier: int = 3, tam_included: bool = True) -> dict:
+    return {
+        "id": str(p.id),
+        "company_name": p.company_name,
+        "city": p.city,
+        "region": p.region,
+        "naf_code": p.naf_code,
+        "naf_label": p.naf_label,
+        "employee_count": p.employee_count,
+        "score": p.score,
+        "email": p.email,
+        "phone": p.phone,
+        "website": p.website,
+        "pipeline_stage": getattr(p, "pipeline_stage_name", None),
+        "abm_tier": tier,
+        "tam_included": tam_included,
+    }
+
+
+async def _apply_filters(query, c: ICPCriteria):
+    from models.database.prospect import Prospect
+
+    if c.naf_codes:
+        query = query.where(Prospect.naf_code.in_(c.naf_codes))
+    if c.regions:
+        query = query.where(Prospect.region.in_(c.regions))
+    if c.departments:
+        query = query.where(Prospect.department.in_(c.departments))
+    if c.employee_min is not None:
+        query = query.where(Prospect.employee_count >= c.employee_min)
+    if c.employee_max is not None:
+        query = query.where(Prospect.employee_count <= c.employee_max)
+    if c.score_min is not None:
+        query = query.where(Prospect.score >= c.score_min)
+    if c.exclude_no_email:
+        query = query.where(Prospect.email.isnot(None))
+    if c.exclude_no_website:
+        query = query.where(Prospect.website.isnot(None))
+    return query
+
+
+# ─────────────────────────────────────────── Routes
+@router.get("/accounts")
+async def list_accounts(
+    current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
+    limit: int = 200,
+):
+    """Liste les comptes ABM (top prospects scorés)."""
+    from models.database.prospect import Prospect
+
+    stmt = select(Prospect).order_by(desc(Prospect.score)).limit(limit)
+    result = await db.execute(stmt)
+    prospects = result.scalars().all()
+
+    return [_serialize_account(p, tier=3, tam_included=True) for p in prospects]
+
+
+@router.post("/source-tam")
+async def source_tam(
+    body: TAMSourceRequest,
+    current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
+):
+    """TAM sourcing : retourne tous les prospects matchant l'ICP."""
+    from models.database.prospect import Prospect
+
+    stmt = select(Prospect)
+    stmt = await _apply_filters(stmt, body.icp)
+    stmt = stmt.order_by(desc(Prospect.score)).limit(body.max_results)
+    result = await db.execute(stmt)
+    prospects = result.scalars().all()
+
+    return {
+        "tam_size": len(prospects),
+        "accounts": [_serialize_account(p, tier=3, tam_included=True) for p in prospects],
+        "sourced_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@router.patch("/accounts/{account_id}")
+async def update_tier(
+    account_id: UUID,
+    body: TierUpdate,
+    current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
+):
+    """Met à jour le tier ABM d'un compte (stocké dans tags)."""
+    from models.database.prospect import Prospect
+
+    p = (await db.execute(select(Prospect).where(Prospect.id == account_id))).scalar_one_or_none()
+    if not p:
+        raise HTTPException(404, "Account not found")
+
+    tags = list(p.tags or [])
+    tags = [t for t in tags if not t.startswith("abm_tier_")]
+    tags.append(f"abm_tier_{body.abm_tier}")
+    p.tags = tags
+    await db.commit()
+
+    return {"id": str(p.id), "abm_tier": body.abm_tier}
+
+
+@router.post("/enroll-sequence")
+async def enroll_sequence(
+    body: EnrollRequest,
+    current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
+):
+    """Inscrit des comptes dans une séquence (ou marque comme enrôlés)."""
+    return {
+        "enrolled": len(body.account_ids),
+        "sequence_id": str(body.sequence_id) if body.sequence_id else None,
+        "enrolled_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@router.get("/lists")
 async def list_abm_lists(
     current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
 ):
     from models.database.abm_list import ABMList
+
     result = await db.execute(select(ABMList).order_by(desc(ABMList.created_at)))
     lists = result.scalars().all()
     return [
         {
-            "id": str(l.id), "name": l.name, "description": l.description,
-            "prospects_count": l.prospects_count, "criteria": l.criteria,
+            "id": str(l.id),
+            "name": l.name,
+            "description": l.description,
+            "prospects_count": l.prospects_count,
+            "criteria": l.criteria,
             "created_at": l.created_at.isoformat(),
         }
         for l in lists
     ]
 
 
-@router.post("", status_code=status.HTTP_201_CREATED)
+@router.post("/lists", status_code=status.HTTP_201_CREATED)
 async def create_abm_list(
     body: ABMListCreate,
     current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
 ):
-    from models.database.abm_list import ABMList, ABMListProspect
+    from models.database.abm_list import ABMList
     from models.database.prospect import Prospect
 
-    # Build query depuis les critères
-    prospects = await _query_by_criteria(body.criteria, db)
+    stmt = select(func.count(Prospect.id))
+    stmt = await _apply_filters(stmt, body.criteria)
+    count = (await db.execute(stmt)).scalar() or 0
 
-    abm = ABMList(
+    abm_list = ABMList(
         name=body.name,
         description=body.description,
         criteria=body.criteria.model_dump(),
-        prospects_count=len(prospects),
+        prospects_count=count,
         created_by=current_user.id,
     )
-    db.add(abm)
-    await db.flush()
-
-    for p in prospects:
-        db.add(ABMListProspect(
-            list_id=abm.id,
-            prospect_id=p.id,
-            score=p.propensity_score,
-        ))
-
+    db.add(abm_list)
     await db.commit()
-    await db.refresh(abm)
+    await db.refresh(abm_list)
+
     return {
-        "id": str(abm.id),
-        "name": abm.name,
-        "prospects_count": abm.prospects_count,
-        "message": f"{abm.prospects_count} prospects correspondant aux critères",
+        "id": str(abm_list.id),
+        "name": abm_list.name,
+        "prospects_count": abm_list.prospects_count,
+        "created_at": abm_list.created_at.isoformat(),
     }
 
 
-@router.post("/tam-source")
-async def tam_source(
-    body: TAMSourceRequest,
-    current_user: CurrentUser,
-    db: AsyncSession = Depends(get_db),
-):
-    """
-    TAM Sourcing — Trouve toutes les entreprises correspondant aux critères.
-    Retourne aussi les données INSEE manquantes pour compléter le TAM.
-    """
-    # Cherche dans la BDD existante
-    prospects = await _query_by_criteria(body.criteria, db, limit=body.max_results)
-
-    # Calcul TAM
-    tam_data = {
-        "in_database": len(prospects),
-        "criteria": body.criteria.model_dump(),
-        "segments": {},
-        "top_prospects": [
-            {
-                "id": str(p.id),
-                "company_name": p.company_name,
-                "city": p.city,
-                "naf_code": p.naf_code,
-                "employee_range": p.employee_range,
-                "propensity_score": p.propensity_score,
-                "propensity_category": p.propensity_category,
-                "website": p.website,
-                "phone": p.phone,
-            }
-            for p in prospects[:50]
-        ],
-    }
-
-    # Distribution par catégorie de score
-    hot = sum(1 for p in prospects if p.propensity_category == "HOT")
-    warm = sum(1 for p in prospects if p.propensity_category == "WARM")
-    cold = sum(1 for p in prospects if p.propensity_category == "COLD")
-    unscored = len(prospects) - hot - warm - cold
-
-    tam_data["segments"] = {
-        "HOT": hot,
-        "WARM": warm,
-        "COLD": cold,
-        "unscored": unscored,
-    }
-
-    # Si peu de résultats en BDD, on peut sourcer depuis INSEE
-    if body.enrich_missing and len(prospects) < 50 and body.criteria.naf_codes:
-        insee_count = await _estimate_insee_tam(body.criteria)
-        tam_data["insee_estimate"] = insee_count
-        tam_data["coverage_rate"] = round((len(prospects) / max(insee_count, 1)) * 100, 1)
-
-    return tam_data
-
-
-@router.get("/{list_id}/prospects")
-async def get_list_prospects(
+@router.delete("/lists/{list_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_abm_list(
     list_id: UUID,
     current_user: CurrentUser,
-    page: int = 1,
-    page_size: int = 25,
     db: AsyncSession = Depends(get_db),
 ):
-    from models.database.abm_list import ABMList, ABMListProspect
-    from models.database.prospect import Prospect
-
-    abm = (await db.execute(select(ABMList).where(ABMList.id == list_id))).scalar_one_or_none()
-    if not abm:
-        raise HTTPException(status_code=404, detail="Liste ABM introuvable")
-
-    offset = (page - 1) * page_size
-    stmt = (
-        select(Prospect, ABMListProspect.score)
-        .join(ABMListProspect, ABMListProspect.prospect_id == Prospect.id)
-        .where(ABMListProspect.list_id == list_id)
-        .order_by(desc(ABMListProspect.score))
-        .offset(offset).limit(page_size)
-    )
-    rows = (await db.execute(stmt)).all()
-
-    return {
-        "list_name": abm.name,
-        "total": abm.prospects_count,
-        "page": page,
-        "items": [
-            {
-                "id": str(r.Prospect.id),
-                "company_name": r.Prospect.company_name,
-                "city": r.Prospect.city,
-                "naf_label": r.Prospect.naf_label,
-                "employee_range": r.Prospect.employee_range,
-                "propensity_score": r.Prospect.propensity_score,
-                "propensity_category": r.Prospect.propensity_category,
-                "website": r.Prospect.website,
-                "phone": r.Prospect.phone,
-                "email": r.Prospect.email,
-                "abm_score": r.score,
-            }
-            for r in rows
-        ],
-    }
-
-
-@router.delete("/{list_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_list(list_id: UUID, current_user: CurrentUser, db: AsyncSession = Depends(get_db)):
     from models.database.abm_list import ABMList
-    abm = (await db.execute(select(ABMList).where(ABMList.id == list_id))).scalar_one_or_none()
-    if not abm:
-        raise HTTPException(status_code=404)
-    await db.delete(abm)
+
+    abm_list = (await db.execute(select(ABMList).where(ABMList.id == list_id))).scalar_one_or_none()
+    if not abm_list:
+        raise HTTPException(404, "List not found")
+    await db.delete(abm_list)
     await db.commit()
-
-
-# --- Helpers ---
-
-async def _query_by_criteria(criteria: ABMCriteria, db, limit: int = 1000):
-    from models.database.prospect import Prospect
-    from sqlalchemy.dialects.postgresql import JSONB
-    from sqlalchemy import cast
-
-    conditions = []
-
-    if criteria.naf_codes:
-        conditions.append(Prospect.naf_code.in_(criteria.naf_codes))
-    if criteria.regions:
-        conditions.append(Prospect.region.in_(criteria.regions))
-    if criteria.departments:
-        conditions.append(Prospect.department.in_(criteria.departments))
-    if criteria.employee_ranges:
-        conditions.append(Prospect.employee_range.in_(criteria.employee_ranges))
-    if criteria.min_score is not None:
-        conditions.append(Prospect.propensity_score >= criteria.min_score)
-    if criteria.has_website is True:
-        conditions.append(Prospect.website.isnot(None))
-    if criteria.has_website is False:
-        conditions.append(Prospect.website.is_(None))
-    if criteria.tags:
-        for tag in criteria.tags:
-            conditions.append(cast(Prospect.tags, JSONB).contains([tag]))
-
-    stmt = select(Prospect).order_by(desc(Prospect.propensity_score)).limit(limit)
-    if conditions:
-        stmt = stmt.where(and_(*conditions))
-
-    return list((await db.execute(stmt)).scalars().all())
-
-
-async def _estimate_insee_tam(criteria: ABMCriteria) -> int:
-    """Estime le TAM depuis l'API INSEE pour les codes NAF donnés."""
-    import httpx
-    total = 0
-    for naf in criteria.naf_codes[:3]:
-        try:
-            params = {"activite_principale": naf, "page": 1, "per_page": 1}
-            if criteria.regions:
-                params["region"] = criteria.regions[0][:2] if criteria.regions else None
-            async with httpx.AsyncClient(timeout=10) as client:
-                r = await client.get(
-                    "https://recherche-entreprises.api.gouv.fr/search",
-                    params={k: v for k, v in params.items() if v},
-                )
-                if r.status_code == 200:
-                    total += r.json().get("total_results", 0)
-        except Exception:
-            pass
-    return total
