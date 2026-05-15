@@ -145,9 +145,11 @@ async def list_sequences(
         select(EmailSequence).order_by(desc(EmailSequence.created_at))
     )
     seqs = result.scalars().all()
-    return [{"id": str(s.id), "name": s.name, "description": s.description, "is_active": s.is_active,
-             "created_at": s.created_at.isoformat()} for s in seqs]
-
+    items = [{"id": str(s.id), "name": s.name, "description": s.description, "is_active": s.is_active,
+              # ... reste des champs existants
+             }
+             for s in sequences]
+    return {"items": items, "total": len(items)}
 
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def create_sequence(
