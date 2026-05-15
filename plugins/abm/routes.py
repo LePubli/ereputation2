@@ -67,8 +67,8 @@ def _serialize_account(p, tier: int = 3, tam_included: bool = True) -> dict:
         "region": p.region,
         "naf_code": p.naf_code,
         "naf_label": p.naf_label,
-        "employee_count": p.employee_count,
-        "score": p.score,
+        "employee_range": p.employee_range,
+        "score": p.propensity_score,
         "email": p.email,
         "phone": p.phone,
         "website": p.website,
@@ -87,18 +87,13 @@ async def _apply_filters(query, c: ICPCriteria):
         query = query.where(Prospect.region.in_(c.regions))
     if c.departments:
         query = query.where(Prospect.department.in_(c.departments))
-    if c.employee_min is not None:
-        query = query.where(Prospect.employee_count >= c.employee_min)
-    if c.employee_max is not None:
-        query = query.where(Prospect.employee_count <= c.employee_max)
     if c.score_min is not None:
-        query = query.where(Prospect.score >= c.score_min)
+        query = query.where(Prospect.propensity_score >= c.score_min)
     if c.exclude_no_email:
         query = query.where(Prospect.email.isnot(None))
     if c.exclude_no_website:
         query = query.where(Prospect.website.isnot(None))
     return query
-
 
 # ─────────────────────────────────────────── Routes
 @router.get("/accounts")
@@ -107,6 +102,14 @@ async def list_accounts(
     db: AsyncSession = Depends(get_db),
     limit: int = 200,
 ):
+    from models.database.prospect import Prospect
+
+    stmt = select(Prospect).order_by(desc(Prospect.propensity_score)).limit(limit)
+    result = await db.execute(stmt)
+    prospects = result.scalars().all()
+
+    items = [_serialize_account(p, tier=3, tam_included=True) for p in prospects]
+    return {"items": items, "total": len(items)}
     """Liste les comptes ABM (top prospects scorés)."""
     from models.database.prospect import Prospect
 
