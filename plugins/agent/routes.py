@@ -152,3 +152,23 @@ async def bulk_run(
         "field": body.field,
         "results": results,
     }
+@router.get("/providers")
+async def list_ai_providers(current_user: CurrentUser):
+    """Liste les fournisseurs LLM disponibles."""
+    from core.config import settings
+    providers = []
+
+    if settings.ANTHROPIC_API_KEY if hasattr(settings, 'ANTHROPIC_API_KEY') else None:
+        providers.append({"id": "claude", "name": "Claude (Anthropic)", "available": True})
+    else:
+        providers.append({"id": "claude", "name": "Claude (Anthropic)", "available": False})
+
+    providers += [
+        {"id": "openai", "name": "OpenAI GPT-4", "available": bool(getattr(settings, 'OPENAI_API_KEY', None))},
+        {"id": "qwen", "name": "Qwen (Alibaba)", "available": bool(getattr(settings, 'LLM_API_URL', None))},
+        {"id": "groq", "name": "Groq (Llama)", "available": bool(getattr(settings, 'GROQ_API_KEY', None) if hasattr(settings, 'GROQ_API_KEY') else None)},
+        {"id": "ollama", "name": "Ollama (local)", "available": bool(getattr(settings, 'SERVICE_URL_OLLAMA', None))},
+    ]
+
+    active = next((p["id"] for p in providers if p["available"]), "none")
+    return {"providers": providers, "active": active}
