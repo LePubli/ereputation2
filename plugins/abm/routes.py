@@ -131,7 +131,7 @@ async def source_tam(
 
     stmt = select(Prospect)
     stmt = await _apply_filters(stmt, body.icp)
-    stmt = stmt.order_by(desc(Prospect.score)).limit(body.max_results)
+    stmt = stmt.order_by(desc(Prospect.propensity_score)).limit(body.max_results)
     result = await db.execute(stmt)
     prospects = result.scalars().all()
 
@@ -188,7 +188,7 @@ async def list_abm_lists(
 
     result = await db.execute(select(ABMList).order_by(desc(ABMList.created_at)))
     lists = result.scalars().all()
-    return [
+    items = [
         {
             "id": str(l.id),
             "name": l.name,
@@ -199,6 +199,7 @@ async def list_abm_lists(
         }
         for l in lists
     ]
+    return {"items": items, "total": len(items)}
 
 
 @router.post("/lists", status_code=status.HTTP_201_CREATED)
