@@ -46,7 +46,7 @@ async def list_prospects(
     has_phone: bool | None = Query(None),
     min_score: float | None = Query(None, ge=0, le=100),
     tags: str | None = Query(None, description="Virgule-séparé ex: IT,B2B"),
-    sort_by: str = Query("created_at", pattern="^(created_at|company_name|propensity_score|estimated_revenue|last_activity_at)$"),
+    sort_by: str = Query("created_at", pattern="^(created_at|company_name|propensity_score|estimated_revenue|last_activity_at|score)$"),
     sort_dir: str = Query("desc", pattern="^(asc|desc)$"),
     db: AsyncSession = Depends(get_db),
 ):
