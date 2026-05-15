@@ -11,8 +11,7 @@ from core.database import get_db
 from models.database.prospect import Prospect
 from services.ai_agent import run_agent, bulk_agent_enrich
 
-router = APIRouter(prefix="/api/v1/agent", tags=["agent"])
-
+router = APIRouter(prefix="/api/v1/ai", tags=["agent"])
 
 class AgentRequest(BaseModel):
     prospect_id: UUID
