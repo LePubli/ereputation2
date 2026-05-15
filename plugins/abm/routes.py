@@ -110,7 +110,7 @@ async def list_accounts(
     """Liste les comptes ABM (top prospects scorés)."""
     from models.database.prospect import Prospect
 
-    stmt = select(Prospect).order_by(desc(Prospect.score)).limit(limit)
+    stmt = select(Prospect).order_by(desc(Prospect.propensity_score)).limit(limit)
     result = await db.execute(stmt)
     prospects = result.scalars().all()
 
