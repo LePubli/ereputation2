@@ -135,6 +135,7 @@ async def send_email_smtp(
 # --- Endpoints ---
 
 @router.get("")
+@router.get("/")
 async def list_sequences(
     current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
