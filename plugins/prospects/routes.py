@@ -284,3 +284,13 @@ async def reenrich(prospect_id: UUID, current_user: CurrentUser, db: AsyncSessio
     await db.commit()
     await db.refresh(p)
     return ProspectRead.model_validate(p)
+@router.get("/contacts/providers")
+async def list_contact_providers(current_user: CurrentUser):
+    """Fournisseurs Contact Intelligence disponibles."""
+    return {
+        "providers": [
+            {"id": "smtp_verify", "name": "SMTP Verify", "available": True},
+            {"id": "hunter", "name": "Hunter.io", "available": False},
+            {"id": "dropcontact", "name": "Dropcontact", "available": False},
+        ]
+    }
