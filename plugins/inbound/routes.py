@@ -103,18 +103,17 @@ async def create_source(
     await db.commit()
     await db.refresh(s)
 
-    return InboundSourceRead(
-        id=str(s.id),
-        name=s.name,
-        token=s.token,
-        webhook_url=f"/api/v1/inbound/receive/{s.token}",
-        source_type=s.source_type,
-        field_mapping=s.field_mapping or {},
-        auto_enrich=s.auto_enrich,
-        is_active=s.is_active,
-        leads_count=s.leads_count,
-        created_at=s.created_at.isoformat(),
-    )
+    items = [
+        InboundSourceRead(
+            id=str(s.id), name=s.name, token=s.token,
+            webhook_url=f"/api/v1/inbound/receive/{s.token}",
+            source_type=s.source_type, field_mapping=s.field_mapping or {},
+            auto_enrich=s.auto_enrich, is_active=s.is_active,
+            leads_count=s.leads_count, created_at=s.created_at.isoformat(),
+        )
+        for s in sources
+    ]
+    return {"items": items, "total": len(items)}
 
 
 @router.post("/receive/{token}")
