@@ -72,7 +72,7 @@ async def list_webhooks(
         select(Webhook).order_by(desc(Webhook.created_at)).limit(limit)
     )
     webhooks = result.scalars().all()
-    return [
+    items = [
         {
             "id": str(w.id),
             "name": w.name,
@@ -87,6 +87,7 @@ async def list_webhooks(
         }
         for w in webhooks
     ]
+    return {"items": items, "total": len(items)}
 
 
 @router.post("")
@@ -197,7 +198,8 @@ async def list_events(current_user: CurrentUser):
 @router.get("/logs")
 async def list_logs(current_user: CurrentUser, limit: int = 100):
     """Logs des dernières exécutions de webhooks (memory ring buffer)."""
-    return list(reversed(list(_WEBHOOK_LOGS)))[:limit]
+    items = list(reversed(list(_WEBHOOK_LOGS)))[:limit]
+    return {"items": items, "total": len(items)}
 
 
 # ─────────────────────────────────────────── Dispatch helpers
