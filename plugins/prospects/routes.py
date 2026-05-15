@@ -53,6 +53,10 @@ async def list_prospects(
     service = ProspectService(db)
     tags_list = [t.strip() for t in tags.split(",")] if tags else None
 
+    # Alias frontend score → propensity_score
+    if sort_by == "score":
+        sort_by = "propensity_score"
+
     items, total = await service.list_prospects(
         page=page, page_size=page_size, search=search, stage_id=stage_id,
         naf_code=naf_code, region=region, department=department,
@@ -60,6 +64,10 @@ async def list_prospects(
         has_website=has_website, has_phone=has_phone,
         min_score=min_score, tags=tags_list,
         sort_by=sort_by, sort_dir=sort_dir,
+    )
+    return ProspectListResponse(
+        items=[ProspectRead.model_validate(p) for p in items],
+        total=total, page=page, page_size=page_size,
     )
     return ProspectListResponse(
         items=[ProspectRead.model_validate(p) for p in items],
