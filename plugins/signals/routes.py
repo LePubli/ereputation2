@@ -70,22 +70,23 @@ async def list_signals(
         stmt = stmt.where(Signal.severity == severity)
 
     rows = (await db.execute(stmt)).all()
-    return [
-        {
-            "id": str(s.id),
-            "prospect_id": str(s.prospect_id),
-            "prospect_name": name,
-            "type": s.type,
-            "title": s.title,
-            "description": s.description,
-            "source": s.source,
-            "severity": s.severity,
-            "is_read": s.is_read,
-            "signal_date": s.signal_date.isoformat() if s.signal_date else None,
-            "created_at": s.created_at.isoformat(),
-        }
-        for s, name in rows
+    items = [
+        SignalRead(
+            id=str(r.Signal.id),
+            prospect_id=str(r.Signal.prospect_id),
+            prospect_name=r.company_name,
+            type=r.Signal.type,
+            title=r.Signal.title,
+            description=r.Signal.description,
+            source=r.Signal.source,
+            severity=r.Signal.severity,
+            is_read=r.Signal.is_read,
+            signal_date=r.Signal.signal_date.isoformat() if r.Signal.signal_date else None,
+            created_at=r.Signal.created_at.isoformat(),
+        )
+        for r in rows
     ]
+    return {"items": items, "total": len(items)}
 
 
 @router.get("/summary")
