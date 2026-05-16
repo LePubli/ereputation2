@@ -7,21 +7,14 @@ Fonctionnalités :
 - Personnalisation IA (Claude génère le contenu par prospect)
 - Suivi : envois, ouvertures, réponses, désabonnements
 - Worker ARQ pour envois automatisés
-
-Exemple de séquence :
-    Étape 1 (J+0) : Email de prise de contact
-    Étape 2 (J+3) : Relance courte si pas de réponse
-    Étape 3 (J+7) : Email de valeur (cas client)
-    Étape 4 (J+14) : Break-up email
 """
-import hashlib
 import re
 import secrets
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -30,6 +23,7 @@ from core.config import settings
 from core.database import get_db
 
 router = APIRouter(prefix="/api/v1/sequencer/sequences", tags=["sequencer"])
+
 
 # --- Schémas ---
 
@@ -50,7 +44,7 @@ class SequenceCreate(BaseModel):
 
 class EnrollRequest(BaseModel):
     prospect_ids: list[UUID]
-    email_override: str | None = None  # si pas d'email sur le prospect
+    email_override: str | None = None
 
 
 class SequenceStats(BaseModel):
@@ -67,24 +61,17 @@ class SequenceStats(BaseModel):
 # --- Helpers ---
 
 def render_template(template: str, prospect: dict) -> str:
-    """Remplace les variables {{field}} par les vraies valeurs."""
     def replace(match):
         key = match.group(1).strip()
         return str(prospect.get(key) or "")
     return re.sub(r'\{\{(\w+)\}\}', replace, template)
 
 
-async def personalize_with_ai(
-    body: str,
-    prospect: dict,
-    prompt: str,
-    api_key: str,
-) -> str:
-    """Utilise Claude pour personnaliser un email."""
+async def personalize_with_ai(body: str, prospect: dict, prompt: str, api_key: str) -> str:
     from services.ai_agent import run_agent
     result = await run_agent(
         prospect_data=prospect,
-        prompt=f"{prompt}\n\nVoici le template de base:\n{body}\n\nRetourne UNIQUEMENT le corps de l'email personnalisé, sans JSON, sans markup.",
+        prompt=f"{prompt}\n\nVoici le template de base:\n{body}\n\nRetourne UNIQUEMENT le corps de l'email personnalisé.",
         use_search=False,
         anthropic_api_key=api_key,
     )
@@ -92,12 +79,7 @@ async def personalize_with_ai(
     return str(raw)
 
 
-async def send_email_smtp(
-    to_email: str,
-    subject: str,
-    body_html: str,
-) -> bool:
-    """Envoie un email via SMTP PlanetHoster."""
+async def send_email_smtp(to_email: str, subject: str, body_html: str) -> bool:
     try:
         import aiosmtplib
         from email.mime.multipart import MIMEMultipart
@@ -108,13 +90,9 @@ async def send_email_smtp(
         msg["From"] = f"{settings.SMTP_FROM_NAME} <{settings.SMTP_FROM_EMAIL}>"
         msg["To"] = to_email
 
-        # Version HTML
-        html_part = MIMEText(body_html, "html", "utf-8")
-        # Version texte (strip des balises)
         text_plain = re.sub(r'<[^>]+>', '', body_html)
-        text_part = MIMEText(text_plain, "plain", "utf-8")
-        msg.attach(text_part)
-        msg.attach(html_part)
+        msg.attach(MIMEText(text_plain, "plain", "utf-8"))
+        msg.attach(MIMEText(body_html, "html", "utf-8"))
 
         await aiosmtplib.send(
             msg,
@@ -145,11 +123,18 @@ async def list_sequences(
         select(EmailSequence).order_by(desc(EmailSequence.created_at))
     )
     seqs = result.scalars().all()
-    items = [{"id": str(s.id), "name": s.name, "description": s.description, "is_active": s.is_active,
-              # ... reste des champs existants
-             }
-             for s in sequences]
+    items = [
+        {
+            "id": str(s.id),
+            "name": s.name,
+            "description": s.description,
+            "is_active": s.is_active,
+            "created_at": s.created_at.isoformat(),
+        }
+        for s in seqs
+    ]
     return {"items": items, "total": len(items)}
+
 
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def create_sequence(
@@ -191,7 +176,6 @@ async def enroll_prospects(
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ):
-    """Inscrit des prospects à une séquence et planifie le premier envoi."""
     from models.database.email_sequence import EmailSequence, SequenceContact
     from models.database.prospect import Prospect
 
@@ -217,7 +201,6 @@ async def enroll_prospects(
             skipped += 1
             continue
 
-        # Vérif doublon
         existing = (await db.execute(
             select(SequenceContact).where(
                 SequenceContact.sequence_id == sequence_id,
@@ -249,8 +232,7 @@ async def get_stats(
     current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
 ):
-    from sqlalchemy import func
-    from models.database.email_sequence import EmailSequence, SequenceContact, EmailSend
+    from models.database.email_sequence import EmailSequence, SequenceContact
 
     seq = (await db.execute(
         select(EmailSequence).where(EmailSequence.id == sequence_id)
@@ -302,13 +284,9 @@ async def delete_sequence(sequence_id: UUID, current_user: CurrentUser, db: Asyn
     await db.commit()
 
 
-# --- Worker ARQ (tâche planifiée) ---
+# --- Worker ARQ ---
 
 async def task_process_sequences(ctx: dict) -> dict:
-    """
-    Tâche ARQ — envoie les emails planifiés de toutes les séquences actives.
-    À lancer toutes les 5 minutes via cron ARQ.
-    """
     from sqlalchemy import and_
     from models.database.email_sequence import (
         EmailSequence, SequenceContact, SequenceStep, EmailSend
@@ -324,7 +302,6 @@ async def task_process_sequences(ctx: dict) -> dict:
     async with AsyncSessionLocal() as db:
         now = datetime.now(timezone.utc)
 
-        # Récupère tous les contacts à envoyer maintenant
         stmt = select(SequenceContact).where(
             and_(
                 SequenceContact.status == "active",
@@ -332,13 +309,12 @@ async def task_process_sequences(ctx: dict) -> dict:
                 SequenceContact.unsubscribed.is_(False),
                 SequenceContact.bounced.is_(False),
             )
-        ).limit(50)  # max 50 par batch
+        ).limit(50)
 
         contacts = (await db.execute(stmt)).scalars().all()
 
         for contact in contacts:
             try:
-                # Charge la séquence et l'étape courante
                 seq = (await db.execute(
                     select(EmailSequence).where(EmailSequence.id == contact.sequence_id)
                 )).scalar_one_or_none()
@@ -357,7 +333,6 @@ async def task_process_sequences(ctx: dict) -> dict:
                     contact.status = "completed"
                     continue
 
-                # Charge le prospect
                 prospect = (await db.execute(
                     select(Prospect).where(Prospect.id == contact.prospect_id)
                 )).scalar_one_or_none()
@@ -376,22 +351,17 @@ async def task_process_sequences(ctx: dict) -> dict:
                     "siren": prospect.siren,
                 }
 
-                # Rendu du template
                 subject = render_template(step.subject_template, prospect_dict)
                 body = render_template(step.body_template, prospect_dict)
 
-                # Personnalisation IA si activée
                 if step.use_ai_personalization and step.ai_personalization_prompt and api_key:
                     body = await personalize_with_ai(body, prospect_dict, step.ai_personalization_prompt, api_key)
 
-                # Ajout pixel de tracking (optionnel)
                 tracking_id = secrets.token_urlsafe(16)
                 body_html = f"{body}<img src='/api/v1/sequences/track/open/{tracking_id}' width='1' height='1' style='display:none'/>"
 
-                # Envoi SMTP
                 success = await send_email_smtp(contact.email, subject, body_html)
 
-                # Enregistrement
                 email_send = EmailSend(
                     sequence_contact_id=contact.id,
                     step_number=step.step_number,
@@ -411,7 +381,6 @@ async def task_process_sequences(ctx: dict) -> dict:
                 else:
                     error_count += 1
 
-                # Planifie l'étape suivante
                 next_step = (await db.execute(
                     select(SequenceStep).where(
                         SequenceStep.sequence_id == contact.sequence_id,
@@ -436,8 +405,6 @@ async def task_process_sequences(ctx: dict) -> dict:
 
 @router.get("/track/open/{tracking_id}")
 async def track_open(tracking_id: str):
-    """Pixel de tracking d'ouverture (1x1 GIF transparent)."""
     from fastapi.responses import Response
-    # GIF 1x1 transparent
     gif = b"GIF89a\x01\x00\x01\x00\x00\xff\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x00;"
     return Response(content=gif, media_type="image/gif")
