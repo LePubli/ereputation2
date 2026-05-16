@@ -60,7 +60,7 @@ export default function ProspectsPage() {
 
   const [enriching, setEnriching] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const [sortField, setSortField] = useState('score');
+  const [sortField, setSortField] = useState('propensity_score');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
   const load = useCallback(async () => {
