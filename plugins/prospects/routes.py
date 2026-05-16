@@ -36,8 +36,7 @@ async def list_prospects(
     page_size: int = Query(25, ge=1, le=100),
     search: str | None = Query(None),
     stage_id: UUID | None = Query(None),
-    # Filtres Phase 2
-    naf_code: str | None = Query(None, description="Code NAF (ex: 62.01Z)"),
+    naf_code: str | None = Query(None),
     region: str | None = Query(None),
     department: str | None = Query(None, max_length=3),
     propensity_category: str | None = Query(None, pattern="^(HOT|WARM|COLD)$"),
@@ -45,7 +44,7 @@ async def list_prospects(
     has_website: bool | None = Query(None),
     has_phone: bool | None = Query(None),
     min_score: float | None = Query(None, ge=0, le=100),
-    tags: str | None = Query(None, description="Virgule-séparé ex: IT,B2B"),
+    tags: str | None = Query(None),
     sort_by: str = Query("created_at", pattern="^(created_at|company_name|propensity_score|estimated_revenue|last_activity_at|score)$"),
     sort_dir: str = Query("desc", pattern="^(asc|desc)$"),
     db: AsyncSession = Depends(get_db),
@@ -53,7 +52,6 @@ async def list_prospects(
     service = ProspectService(db)
     tags_list = [t.strip() for t in tags.split(",")] if tags else None
 
-    # Alias frontend score → propensity_score
     if sort_by == "score":
         sort_by = "propensity_score"
 
@@ -64,10 +62,6 @@ async def list_prospects(
         has_website=has_website, has_phone=has_phone,
         min_score=min_score, tags=tags_list,
         sort_by=sort_by, sort_dir=sort_dir,
-    )
-    return ProspectListResponse(
-        items=[ProspectRead.model_validate(p) for p in items],
-        total=total, page=page, page_size=page_size,
     )
     return ProspectListResponse(
         items=[ProspectRead.model_validate(p) for p in items],
@@ -89,10 +83,9 @@ async def export_csv(
     propensity_category: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
-    """Exporte tous les prospects (filtrés) en CSV téléchargeable."""
     service = ProspectService(db)
     items, _ = await service.list_prospects(
-        page=1, page_size=10000,  # export max 10k
+        page=1, page_size=10000,
         search=search, stage_id=stage_id,
         naf_code=naf_code, region=region,
         propensity_category=propensity_category,
@@ -133,15 +126,11 @@ async def export_csv(
 
 
 # =============================================================================
-# SSE — Server-Sent Events pour notifier la fin du scraping async
+# SSE — Server-Sent Events
 # =============================================================================
 
 @router.get("/events/{prospect_id}")
-async def sse_prospect_events(
-    prospect_id: str,
-    current_user: CurrentUser,
-):
-    """SSE : écoute les events Redis pour un prospect (enrichissement async)."""
+async def sse_prospect_events(prospect_id: str, current_user: CurrentUser):
     import redis.asyncio as aioredis
     from core.config import settings
 
@@ -150,11 +139,8 @@ async def sse_prospect_events(
             r = aioredis.from_url(settings.REDIS_URL)
             pubsub = r.pubsub()
             await pubsub.subscribe(f"prospect:{prospect_id}")
-
             yield f"data: {json.dumps({'event': 'connected', 'prospect_id': prospect_id})}\n\n"
-
-            timeout = 120  # max 2 minutes d'écoute
-            elapsed = 0
+            timeout, elapsed = 120, 0
             while elapsed < timeout:
                 msg = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
                 if msg and msg.get("data"):
@@ -164,7 +150,6 @@ async def sse_prospect_events(
                 elapsed += 1
                 if elapsed % 15 == 0:
                     yield f"data: {json.dumps({'event': 'heartbeat'})}\n\n"
-
             await pubsub.unsubscribe(f"prospect:{prospect_id}")
             await r.close()
         except Exception as e:
@@ -173,15 +158,27 @@ async def sse_prospect_events(
     return StreamingResponse(
         event_generator(),
         media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "X-Accel-Buffering": "no",
-        },
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
 
 
 # =============================================================================
-# CRUD standard (avec auth)
+# Routes statiques AVANT /{prospect_id}
+# =============================================================================
+
+@router.get("/contacts/providers")
+async def list_contact_providers(current_user: CurrentUser):
+    return {
+        "providers": [
+            {"id": "smtp_verify", "name": "SMTP Verify", "available": True},
+            {"id": "hunter", "name": "Hunter.io", "available": False},
+            {"id": "dropcontact", "name": "Dropcontact", "available": False},
+        ]
+    }
+
+
+# =============================================================================
+# CRUD standard
 # =============================================================================
 
 @router.post("", response_model=ProspectRead, status_code=status.HTTP_201_CREATED)
@@ -197,10 +194,6 @@ async def create_manual(data: ProspectCreate, current_user: CurrentUser, db: Asy
 
 @router.post("/by-siret", response_model=ProspectRead, status_code=status.HTTP_201_CREATED)
 async def create_by_siret(data: ProspectCreateBySiret, current_user: CurrentUser, db: AsyncSession = Depends(get_db)):
-    """
-    Création par SIRET — enrichissement synchrone (INSEE+BODACC).
-    Les sources lentes (PJ, Maps) sont lancées en arrière-plan via ARQ.
-    """
     from services.queue import enqueue_siret_enrichment
     from services.scoring import score_prospect
 
@@ -216,10 +209,7 @@ async def create_by_siret(data: ProspectCreateBySiret, current_user: CurrentUser
     await score_prospect(prospect)
     await db.commit()
     await db.refresh(prospect)
-
-    # Enqueue enrichissement complet en arrière-plan
     await enqueue_siret_enrichment(str(prospect.id), data.identifier)
-
     return ProspectRead.model_validate(prospect)
 
 
@@ -284,13 +274,3 @@ async def reenrich(prospect_id: UUID, current_user: CurrentUser, db: AsyncSessio
     await db.commit()
     await db.refresh(p)
     return ProspectRead.model_validate(p)
-@router.get("/contacts/providers")
-async def list_contact_providers(current_user: CurrentUser):
-    """Fournisseurs Contact Intelligence disponibles."""
-    return {
-        "providers": [
-            {"id": "smtp_verify", "name": "SMTP Verify", "available": True},
-            {"id": "hunter", "name": "Hunter.io", "available": False},
-            {"id": "dropcontact", "name": "Dropcontact", "available": False},
-        ]
-    }
