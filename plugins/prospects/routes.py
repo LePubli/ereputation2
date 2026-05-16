@@ -31,8 +31,7 @@ router = APIRouter(prefix="/api/v1/prospects", tags=["prospects"])
 
 @router.get("", response_model=ProspectListResponse)
 @router.get("/", response_model=ProspectListResponse, include_in_schema=False)
-async def list_prospects(async def list_prospects(
-    current_user: CurrentUser,
+async def list_prospects(    current_user: CurrentUser,
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=100),
     search: str | None = Query(None),
