@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, 
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.auth import CurrentUser, OptionalUser
+from core.auth import CurrentUser
 from core.database import get_db
 from models.schemas.prospect import (
     ProspectCreate,
@@ -22,6 +22,7 @@ from models.schemas.prospect import (
 )
 from plugins.prospects.service import ProspectService
 from .bulk_routes import router as bulk_router
+
 router = APIRouter(prefix="/api/v1/prospects", tags=["prospects"])
 
 
@@ -31,7 +32,9 @@ router = APIRouter(prefix="/api/v1/prospects", tags=["prospects"])
 
 @router.get("", response_model=ProspectListResponse)
 @router.get("/", response_model=ProspectListResponse, include_in_schema=False)
-async def list_prospects(    page: int = Query(1, ge=1),
+async def list_prospects(
+    current_user: CurrentUser,
+    page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=100),
     search: str | None = Query(None),
     stage_id: UUID | None = Query(None),
