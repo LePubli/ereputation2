@@ -75,24 +75,33 @@ async def list_jobs(
     db: AsyncSession = Depends(get_db),
     limit: int = 20,
 ):
-    jobs = sorted(_JOBS.values(), key=lambda j: j["created_at"], reverse=True)
+    db_jobs = []
+    try:
+        rows = (await db.execute(text("""
+            SELECT id, name, source, config, status, progress,
+                   found_count, new_count, error, created_at, completed_at
+            FROM sourcing_jobs ORDER BY created_at DESC LIMIT :lim
+        """), {"lim": limit})).fetchall()
+        db_jobs = [
+            {
+                "id": str(r[0]), "name": r[1], "source": r[2], "config": r[3],
+                "status": r[4], "progress": r[5] or 0,
+                "found_count": r[6] or 0, "new_count": r[7] or 0,
+                "error": r[8],
+                "created_at": r[9].isoformat() if hasattr(r[9], "isoformat") else str(r[9]),
+                "completed_at": r[10].isoformat() if r[10] and hasattr(r[10], "isoformat") else None,
+            }
+            for r in rows
+        ]
+    except Exception as e:
+        logger.warning(f"DB fetch failed: {e}")
 
-    if not jobs:
-        try:
-            rows = (await db.execute(text("""
-                SELECT id, name, source, config, status, progress,
-                       found_count, new_count, error, created_at, completed_at
-                FROM sourcing_jobs ORDER BY created_at DESC LIMIT :lim
-            """), {"lim": limit})).fetchall()
-            jobs = [
-                dict(zip(["id","name","source","config","status","progress",
-                          "found_count","new_count","error","created_at","completed_at"], r))
-                for r in rows
-            ]
-        except Exception as e:
-            logger.warning(f"DB fallback failed: {e}")
+    # Merge memory + DB (memory prioritaire pour jobs en cours)
+    mem_ids = {j["id"] for j in _JOBS.values()}
+    merged = list(_JOBS.values()) + [j for j in db_jobs if j["id"] not in mem_ids]
+    merged.sort(key=lambda j: j["created_at"], reverse=True)
 
-    return {"items": jobs[:limit], "total": len(jobs)}
+    return {"items": merged[:limit], "total": len(merged)}
 
 
 @router.get("/jobs/{job_id}")
@@ -114,6 +123,28 @@ async def cancel_job(job_id: str, current_user: CurrentUser):
     return job
 
 
+async def _persist_job(job_id: str, status: str, found: int, new: int, error: str | None = None):
+    """Met à jour le job en BDD."""
+    from core.database import AsyncSessionLocal
+    try:
+        async with AsyncSessionLocal() as db:
+            await db.execute(text("""
+                UPDATE sourcing_jobs
+                SET status = :status, progress = 100,
+                    found_count = :found, new_count = :new,
+                    error = :error,
+                    completed_at = :completed
+                WHERE id = :id
+            """), {
+                "id": job_id, "status": status,
+                "found": found, "new": new, "error": error,
+                "completed": datetime.now(timezone.utc),
+            })
+            await db.commit()
+    except Exception as e:
+        logger.warning(f"[Sourcing] DB persist failed: {e}")
+
+
 async def run_scraping_job(job_id: str, payload: SourcingJobCreate):
     """Exécute un job de sourcing avec les scrapers réels."""
     from core.database import AsyncSessionLocal
@@ -129,7 +160,6 @@ async def run_scraping_job(job_id: str, payload: SourcingJobCreate):
     cfg = payload.config
 
     try:
-        # Construit la query INSEE depuis le config
         query_parts = []
         if cfg.naf_code:
             query_parts.append(cfg.naf_code)
@@ -164,7 +194,7 @@ async def run_scraping_job(job_id: str, payload: SourcingJobCreate):
         unique = unique[: cfg.limit]
         job["found_count"] = len(unique)
 
-        # Insertion en BDD (skip duplicates)
+        # Insertion en BDD
         new_count = 0
         async with AsyncSessionLocal() as db:
             stage = (
@@ -198,7 +228,6 @@ async def run_scraping_job(job_id: str, payload: SourcingJobCreate):
                     email=entry.get("email"),
                     website=entry.get("website"),
                     country="FR",
-                    source=payload.source,
                     sources_used=[payload.source],
                     stage_id=stage.id if stage else None,
                 )
@@ -211,6 +240,8 @@ async def run_scraping_job(job_id: str, payload: SourcingJobCreate):
         job["status"] = "completed"
         job["progress"] = 100
         job["completed_at"] = datetime.now(timezone.utc).isoformat()
+
+        await _persist_job(job_id, "completed", job["found_count"], new_count)
         logger.info(f"[Sourcing] Job {job_id} terminé : {job['found_count']} trouvés, {new_count} nouveaux")
 
     except Exception as e:
@@ -218,6 +249,7 @@ async def run_scraping_job(job_id: str, payload: SourcingJobCreate):
         job["status"] = "failed"
         job["error"] = str(e)[:200]
         job["completed_at"] = datetime.now(timezone.utc).isoformat()
+        await _persist_job(job_id, "failed", job.get("found_count", 0), 0, str(e)[:200])
 
 
 # ─────────────────────────────────────────── Scraper wrappers
@@ -304,7 +336,7 @@ async def _scrape_pappers(query: str | None, cfg: SourcingJobConfig) -> list[dic
 
 
 async def _scrape_bodacc(query: str | None, cfg: SourcingJobConfig) -> list[dict]:
-    """Recherche BODACC via API data.gouv.fr (annonces légales)."""
+    """BODACC + lookup INSEE pour récupérer le SIREN par nom si manquant."""
     import httpx
     if not query:
         return []
@@ -315,25 +347,54 @@ async def _scrape_bodacc(query: str | None, cfg: SourcingJobConfig) -> list[dict
                 params={
                     "dataset": "annonces-commerciales",
                     "q": query,
-                    "rows": min(cfg.limit, 100),
+                    "rows": min(cfg.limit, 50),
                     "sort": "-dateparution",
                 },
             )
             if r.status_code != 200:
                 return []
             data = r.json()
-            results = []
+
+            raw = []
             for rec in data.get("records", []):
                 fields = rec.get("fields", {})
-                results.append({
-                    "siren": str(fields.get("registre", [None, None])[1]) if isinstance(fields.get("registre"), list) else None,
-                    "company_name": fields.get("commercant"),
+                siren = None
+                registre = fields.get("registre")
+                if isinstance(registre, list) and len(registre) >= 2:
+                    cand = str(registre[1] or "").replace(" ", "")
+                    if cand.isdigit() and len(cand) == 9:
+                        siren = cand
+                elif isinstance(registre, str):
+                    cand = "".join(c for c in registre if c.isdigit())
+                    if len(cand) >= 9:
+                        siren = cand[:9]
+
+                name = fields.get("commercant") or fields.get("denomination")
+                if not name:
+                    continue
+
+                raw.append({
+                    "siren": siren,
+                    "company_name": name,
                     "city": fields.get("ville"),
                     "postal_code": fields.get("cp"),
                     "department": fields.get("departement_nom_officiel"),
                     "region": fields.get("region_nom_officiel"),
                 })
-            return [r for r in results if r.get("company_name")]
+
+            # Enrichir les résultats sans SIREN via INSEE
+            enriched = []
+            for r in raw:
+                if r.get("siren"):
+                    enriched.append(r)
+                    continue
+                lookup_query = f"{r['company_name']} {r.get('city') or ''}".strip()
+                lookup = await _scrape_insee(lookup_query, SourcingJobConfig(limit=1))
+                if lookup:
+                    merged = {**lookup[0], **{k: v for k, v in r.items() if v}}
+                    enriched.append(merged)
+
+            return enriched
     except Exception as e:
         logger.warning(f"[BODACC] {e}")
         return []
