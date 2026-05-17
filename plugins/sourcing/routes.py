@@ -1,4 +1,4 @@
-"""Plugin Sourcing — Jobs de scraping en masse."""
+"""Plugin Sourcing — Jobs de scraping multi-sources avec merge enrichi."""
 import asyncio
 import json
 import uuid
@@ -18,6 +18,8 @@ router = APIRouter()
 
 _JOBS: dict[str, dict[str, Any]] = {}
 
+SUPPORTED_SOURCES = {"insee", "pappers", "bodacc", "pages_jaunes", "societe", "trustpilot", "google_maps", "all"}
+
 
 class SourcingJobConfig(BaseModel):
     region: str | None = None
@@ -29,7 +31,8 @@ class SourcingJobConfig(BaseModel):
 
 class SourcingJobCreate(BaseModel):
     name: str
-    source: str
+    source: str | None = None         # legacy single-source
+    sources: list[str] | None = None  # multi-source
     config: SourcingJobConfig
 
 
@@ -40,13 +43,24 @@ async def create_job(
     current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
 ):
+    # Résout sources actives
+    if payload.sources:
+        sources = [s.lower() for s in payload.sources if s.lower() in SUPPORTED_SOURCES]
+    elif payload.source:
+        sources = [payload.source.lower()]
+    else:
+        sources = ["insee"]
+    if not sources:
+        sources = ["insee"]
+
     job_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc).isoformat()
+    source_label = ",".join(sources)
 
     job = {
-        "id": job_id, "name": payload.name, "source": payload.source,
-        "config": payload.config.model_dump(), "status": "pending",
-        "progress": 0, "found_count": 0, "new_count": 0,
+        "id": job_id, "name": payload.name, "source": source_label,
+        "sources": sources, "config": payload.config.model_dump(),
+        "status": "pending", "progress": 0, "found_count": 0, "new_count": 0,
         "error": None, "created_at": now, "completed_at": None,
     }
     _JOBS[job_id] = job
@@ -57,15 +71,15 @@ async def create_job(
             VALUES (:id, :name, :source, :config::jsonb, :status, :created_at, :created_by)
             ON CONFLICT DO NOTHING
         """), {
-            "id": job_id, "name": payload.name, "source": payload.source,
-            "config": json.dumps(payload.config.model_dump()),
+            "id": job_id, "name": payload.name, "source": source_label,
+            "config": json.dumps({**payload.config.model_dump(), "sources": sources}),
             "status": "pending", "created_at": now, "created_by": str(current_user.id),
         })
         await db.commit()
     except Exception as e:
         logger.warning(f"Could not persist sourcing job: {e}")
 
-    background_tasks.add_task(run_scraping_job, job_id, payload)
+    background_tasks.add_task(run_scraping_job, job_id, sources, payload.config)
     return job
 
 
@@ -96,11 +110,9 @@ async def list_jobs(
     except Exception as e:
         logger.warning(f"DB fetch failed: {e}")
 
-    # Merge memory + DB (memory prioritaire pour jobs en cours)
     mem_ids = {j["id"] for j in _JOBS.values()}
     merged = list(_JOBS.values()) + [j for j in db_jobs if j["id"] not in mem_ids]
     merged.sort(key=lambda j: j["created_at"], reverse=True)
-
     return {"items": merged[:limit], "total": len(merged)}
 
 
@@ -124,7 +136,6 @@ async def cancel_job(job_id: str, current_user: CurrentUser):
 
 
 async def _persist_job(job_id: str, status: str, found: int, new: int, error: str | None = None):
-    """Met à jour le job en BDD."""
     from core.database import AsyncSessionLocal
     try:
         async with AsyncSessionLocal() as db:
@@ -132,8 +143,7 @@ async def _persist_job(job_id: str, status: str, found: int, new: int, error: st
                 UPDATE sourcing_jobs
                 SET status = :status, progress = 100,
                     found_count = :found, new_count = :new,
-                    error = :error,
-                    completed_at = :completed
+                    error = :error, completed_at = :completed
                 WHERE id = :id
             """), {
                 "id": job_id, "status": status,
@@ -145,8 +155,8 @@ async def _persist_job(job_id: str, status: str, found: int, new: int, error: st
         logger.warning(f"[Sourcing] DB persist failed: {e}")
 
 
-async def run_scraping_job(job_id: str, payload: SourcingJobCreate):
-    """Exécute un job de sourcing avec les scrapers réels."""
+async def run_scraping_job(job_id: str, sources: list[str], cfg: SourcingJobConfig):
+    """Exécute un job multi-sources avec merge enrichi par SIREN."""
     from core.database import AsyncSessionLocal
     from models.database.prospect import Prospect
     from models.database.pipeline_stage import PipelineStage
@@ -155,46 +165,59 @@ async def run_scraping_job(job_id: str, payload: SourcingJobCreate):
     job = _JOBS.get(job_id)
     if not job:
         return
-
     job["status"] = "running"
-    cfg = payload.config
 
     try:
+        # Construit query
         query_parts = []
-        if cfg.naf_code:
-            query_parts.append(cfg.naf_code)
-        if cfg.city:
-            query_parts.append(cfg.city)
-        if cfg.region:
-            query_parts.append(cfg.region)
-        if cfg.query:
-            query_parts.append(cfg.query)
-
+        if cfg.naf_code: query_parts.append(cfg.naf_code)
+        if cfg.city: query_parts.append(cfg.city)
+        if cfg.region: query_parts.append(cfg.region)
+        if cfg.query: query_parts.append(cfg.query)
         query = " ".join(query_parts) if query_parts else None
 
-        results = []
-        source = payload.source.lower()
+        # Expansion "all"
+        active = set(sources)
+        if "all" in active:
+            active = {"insee", "pappers", "bodacc"}
 
-        if source in ("insee", "all"):
-            results.extend(await _scrape_insee(query, cfg))
-        if source in ("pappers", "all"):
-            results.extend(await _scrape_pappers(query, cfg))
-        if source in ("bodacc", "all"):
-            results.extend(await _scrape_bodacc(query, cfg))
+        # Step 1 : sources principales (génèrent la liste avec SIREN)
+        seed_results: list[dict] = []
+        if "insee" in active:
+            seed_results.extend(await _scrape_insee(query, cfg))
+        if "pappers" in active:
+            seed_results.extend(await _scrape_pappers(query, cfg))
+        if "bodacc" in active:
+            seed_results.extend(await _scrape_bodacc(query, cfg))
 
-        # Dédoublonnage par SIREN
-        seen = set()
-        unique = []
-        for r in results:
+        # Si pas de seed mais sources d'enrichissement seules → fallback INSEE
+        if not seed_results and query:
+            seed_results = await _scrape_insee(query, cfg)
+
+        # Merge par SIREN
+        by_siren: dict[str, dict] = {}
+        for r in seed_results:
             siren = r.get("siren")
-            if siren and siren not in seen:
-                seen.add(siren)
-                unique.append(r)
+            if not siren:
+                continue
+            if siren in by_siren:
+                # Merge : champs vides ← nouvelle source
+                for k, v in r.items():
+                    if v and not by_siren[siren].get(k):
+                        by_siren[siren][k] = v
+            else:
+                r["_sources"] = [r.get("_source", "unknown")]
+                by_siren[siren] = r
 
-        unique = unique[: cfg.limit]
+        unique = list(by_siren.values())[: cfg.limit]
         job["found_count"] = len(unique)
 
-        # Insertion en BDD
+        # Step 2 : enrichissement (Pages Jaunes / Société / Trustpilot / Google Maps)
+        enrich_sources = active & {"pages_jaunes", "societe", "trustpilot", "google_maps"}
+        if enrich_sources:
+            await _enrich_results(unique, enrich_sources)
+
+        # Step 3 : insertion BDD
         new_count = 0
         async with AsyncSessionLocal() as db:
             stage = (
@@ -209,10 +232,22 @@ async def run_scraping_job(job_id: str, payload: SourcingJobCreate):
                     await db.execute(select(Prospect).where(Prospect.siren == siren))
                 ).scalar_one_or_none()
                 if existing:
+                    # Enrichir l'existant : champs vides ← nouvelles données
+                    updated = False
+                    for k in ("phone", "email", "website", "address", "postal_code", "city", "employee_range", "naf_code", "naf_label"):
+                        if entry.get(k) and not getattr(existing, k, None):
+                            setattr(existing, k, entry[k])
+                            updated = True
+                    if updated:
+                        srcs = list(existing.sources_used or [])
+                        for s in entry.get("_sources", []):
+                            if s not in srcs:
+                                srcs.append(s)
+                        existing.sources_used = srcs
                     continue
 
                 prospect = Prospect(
-                    company_name=entry.get("company_name") or entry.get("name") or "Inconnu",
+                    company_name=entry.get("company_name") or "Inconnu",
                     siren=siren,
                     siret=entry.get("siret"),
                     naf_code=entry.get("naf_code"),
@@ -228,21 +263,19 @@ async def run_scraping_job(job_id: str, payload: SourcingJobCreate):
                     email=entry.get("email"),
                     website=entry.get("website"),
                     country="FR",
-                    sources_used=[payload.source],
+                    sources_used=entry.get("_sources", list(active)),
                     stage_id=stage.id if stage else None,
                 )
                 db.add(prospect)
                 new_count += 1
-
             await db.commit()
 
         job["new_count"] = new_count
         job["status"] = "completed"
         job["progress"] = 100
         job["completed_at"] = datetime.now(timezone.utc).isoformat()
-
         await _persist_job(job_id, "completed", job["found_count"], new_count)
-        logger.info(f"[Sourcing] Job {job_id} terminé : {job['found_count']} trouvés, {new_count} nouveaux")
+        logger.info(f"[Sourcing] Job {job_id} : {job['found_count']} trouvés, {new_count} nouveaux, sources={active}")
 
     except Exception as e:
         logger.exception(f"[Sourcing] Job {job_id} failed: {e}")
@@ -252,9 +285,8 @@ async def run_scraping_job(job_id: str, payload: SourcingJobCreate):
         await _persist_job(job_id, "failed", job.get("found_count", 0), 0, str(e)[:200])
 
 
-# ─────────────────────────────────────────── Scraper wrappers
+# ─────────────────────────────────────────── Scrapers seed (génèrent SIREN)
 async def _scrape_insee(query: str | None, cfg: SourcingJobConfig) -> list[dict]:
-    """Recherche INSEE via l'API publique (sans clé)."""
     import httpx
     if not query:
         return []
@@ -271,6 +303,7 @@ async def _scrape_insee(query: str | None, cfg: SourcingJobConfig) -> list[dict]
             for e in data.get("results", []):
                 siege = e.get("siege") or {}
                 results.append({
+                    "_source": "insee",
                     "siren": e.get("siren"),
                     "siret": siege.get("siret"),
                     "company_name": e.get("nom_complet") or e.get("nom_raison_sociale"),
@@ -291,10 +324,7 @@ async def _scrape_insee(query: str | None, cfg: SourcingJobConfig) -> list[dict]
 
 
 async def _scrape_pappers(query: str | None, cfg: SourcingJobConfig) -> list[dict]:
-    """Recherche Pappers (nécessite clé API)."""
-    import httpx
-    import os
-
+    import httpx, os
     api_key = os.getenv("PAPPERS_API_KEY")
     if not api_key or not query:
         return []
@@ -303,8 +333,7 @@ async def _scrape_pappers(query: str | None, cfg: SourcingJobConfig) -> list[dic
             r = await client.get(
                 "https://api.pappers.fr/v2/recherche",
                 params={
-                    "api_token": api_key,
-                    "q": query,
+                    "api_token": api_key, "q": query,
                     "code_naf": cfg.naf_code or "",
                     "par_page": min(cfg.limit, 100),
                 },
@@ -314,16 +343,18 @@ async def _scrape_pappers(query: str | None, cfg: SourcingJobConfig) -> list[dic
             data = r.json()
             results = []
             for e in data.get("resultats", []):
+                siege = e.get("siege") or {}
                 results.append({
+                    "_source": "pappers",
                     "siren": e.get("siren"),
-                    "siret": e.get("siege", {}).get("siret"),
+                    "siret": siege.get("siret"),
                     "company_name": e.get("nom_entreprise"),
                     "naf_code": e.get("code_naf"),
                     "naf_label": e.get("libelle_code_naf"),
                     "legal_form": e.get("forme_juridique"),
-                    "address": e.get("siege", {}).get("adresse_ligne_1"),
-                    "postal_code": e.get("siege", {}).get("code_postal"),
-                    "city": e.get("siege", {}).get("ville"),
+                    "address": siege.get("adresse_ligne_1"),
+                    "postal_code": siege.get("code_postal"),
+                    "city": siege.get("ville"),
                     "employee_range": e.get("tranche_effectif"),
                     "phone": e.get("telephone"),
                     "email": e.get("email"),
@@ -336,7 +367,6 @@ async def _scrape_pappers(query: str | None, cfg: SourcingJobConfig) -> list[dic
 
 
 async def _scrape_bodacc(query: str | None, cfg: SourcingJobConfig) -> list[dict]:
-    """BODACC + lookup INSEE pour récupérer le SIREN par nom si manquant."""
     import httpx
     if not query:
         return []
@@ -346,15 +376,13 @@ async def _scrape_bodacc(query: str | None, cfg: SourcingJobConfig) -> list[dict
                 "https://bodacc-datadila.opendatasoft.com/api/records/1.0/search/",
                 params={
                     "dataset": "annonces-commerciales",
-                    "q": query,
-                    "rows": min(cfg.limit, 50),
+                    "q": query, "rows": min(cfg.limit, 50),
                     "sort": "-dateparution",
                 },
             )
             if r.status_code != 200:
                 return []
             data = r.json()
-
             raw = []
             for rec in data.get("records", []):
                 fields = rec.get("fields", {})
@@ -368,33 +396,127 @@ async def _scrape_bodacc(query: str | None, cfg: SourcingJobConfig) -> list[dict
                     cand = "".join(c for c in registre if c.isdigit())
                     if len(cand) >= 9:
                         siren = cand[:9]
-
                 name = fields.get("commercant") or fields.get("denomination")
                 if not name:
                     continue
-
                 raw.append({
-                    "siren": siren,
-                    "company_name": name,
+                    "_source": "bodacc",
+                    "siren": siren, "company_name": name,
                     "city": fields.get("ville"),
                     "postal_code": fields.get("cp"),
                     "department": fields.get("departement_nom_officiel"),
                     "region": fields.get("region_nom_officiel"),
                 })
-
-            # Enrichir les résultats sans SIREN via INSEE
+            # Lookup INSEE pour SIREN manquant
             enriched = []
             for r in raw:
                 if r.get("siren"):
                     enriched.append(r)
                     continue
-                lookup_query = f"{r['company_name']} {r.get('city') or ''}".strip()
-                lookup = await _scrape_insee(lookup_query, SourcingJobConfig(limit=1))
+                lookup = await _scrape_insee(f"{r['company_name']} {r.get('city') or ''}".strip(), SourcingJobConfig(limit=1))
                 if lookup:
                     merged = {**lookup[0], **{k: v for k, v in r.items() if v}}
+                    merged["_source"] = "bodacc+insee"
                     enriched.append(merged)
-
             return enriched
     except Exception as e:
         logger.warning(f"[BODACC] {e}")
         return []
+
+
+# ─────────────────────────────────────────── Enrichissement (par prospect existant)
+async def _enrich_results(prospects: list[dict], sources: set[str]):
+    """Enrichit chaque prospect en mémoire avec Pages Jaunes / Société / Trustpilot."""
+    semaphore = asyncio.Semaphore(3)  # rate limit
+
+    async def enrich_one(p: dict):
+        async with semaphore:
+            tasks = []
+            if "pages_jaunes" in sources:
+                tasks.append(_enrich_pages_jaunes(p))
+            if "societe" in sources:
+                tasks.append(_enrich_societe(p))
+            if "trustpilot" in sources:
+                tasks.append(_enrich_trustpilot(p))
+            if "google_maps" in sources:
+                tasks.append(_enrich_google_maps(p))
+            if tasks:
+                await asyncio.gather(*tasks, return_exceptions=True)
+
+    await asyncio.gather(*[enrich_one(p) for p in prospects], return_exceptions=True)
+
+
+async def _enrich_pages_jaunes(p: dict):
+    """Récupère phone + email + website depuis Pages Jaunes."""
+    try:
+        from services.scrapers.pages_jaunes import PagesJaunesScraper
+        scraper = PagesJaunesScraper()
+        ident = f"{p.get('company_name', '')}|{p.get('city', '')}"
+        result = await scraper.fetch(ident)
+        if result.success and result.data:
+            d = result.data
+            if d.get("phone") and not p.get("phone"):
+                p["phone"] = d["phone"]
+            if d.get("email") and not p.get("email"):
+                p["email"] = d["email"]
+            if d.get("website") and not p.get("website"):
+                p["website"] = d["website"]
+            p.setdefault("_sources", []).append("pages_jaunes")
+    except Exception as e:
+        logger.debug(f"[PJ enrich] {p.get('company_name')}: {e}")
+
+
+async def _enrich_societe(p: dict):
+    """Données financières + dirigeants depuis Société.com."""
+    try:
+        from services.scrapers.societe import SocieteScraper
+        siren = p.get("siren")
+        if not siren:
+            return
+        scraper = SocieteScraper()
+        result = await scraper.fetch(siren)
+        if result.success and result.data:
+            d = result.data
+            if d.get("revenue_text"):
+                p["_revenue_text"] = d["revenue_text"]
+            if d.get("directors_names"):
+                p["_directors"] = d["directors_names"]
+            p.setdefault("_sources", []).append("societe")
+    except Exception as e:
+        logger.debug(f"[Societe enrich] {p.get('siren')}: {e}")
+
+
+async def _enrich_trustpilot(p: dict):
+    """Note + nb avis Trustpilot."""
+    try:
+        from services.scrapers.trustpilot import TrustpilotScraper
+        scraper = TrustpilotScraper()
+        ident = p.get("website") or p.get("company_name", "")
+        result = await scraper.fetch(ident)
+        if result.success and result.data:
+            d = result.data
+            if d.get("rating"):
+                p["_trustpilot_rating"] = d["rating"]
+            if d.get("review_count"):
+                p["_trustpilot_reviews"] = d["review_count"]
+            p.setdefault("_sources", []).append("trustpilot")
+    except Exception as e:
+        logger.debug(f"[Trustpilot enrich] {p.get('company_name')}: {e}")
+
+
+async def _enrich_google_maps(p: dict):
+    """Coordonnées GPS + rating Google."""
+    try:
+        from services.scrapers.google_maps import GoogleMapsScraper
+        scraper = GoogleMapsScraper()
+        ident = f"{p.get('company_name', '')} {p.get('city', '')}".strip()
+        result = await scraper.fetch(ident)
+        if result.success and result.data:
+            d = result.data
+            if d.get("phone") and not p.get("phone"):
+                p["phone"] = d["phone"]
+            if d.get("website") and not p.get("website"):
+                p["website"] = d["website"]
+            p.setdefault("_sources", []).append("google_maps")
+    except Exception as e:
+        logger.debug(f"[GMaps enrich] {p.get('company_name')}: {e}")
