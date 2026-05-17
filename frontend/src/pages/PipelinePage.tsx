@@ -46,7 +46,7 @@ export default function PipelinePage() {
   const loadPipeline = async () => {
     setLoading(true);
     try {
-      const data = await apiClient.get('/prospects/?limit=500&sort_by=score&sort_dir=desc');
+      const data = await apiClient.get('/prospects?limit=500&sort_by=propensity_score&sort_dir=desc');
       setProspects(data.items || []);
     } finally { setLoading(false); }
   };
