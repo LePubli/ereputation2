@@ -129,9 +129,16 @@ async def list_sequences(
             "name": s.name,
             "description": s.description,
             "is_active": s.is_active,
+            "status": "active" if s.is_active else "paused",
+            "steps": [],
+            "enrolled_count": 0,
+            "sent_count": 0,
+            "open_rate": 0,
+            "reply_rate": 0,
             "created_at": s.created_at.isoformat(),
         }
         for s in seqs
+    ]
     ]
     return {"items": items, "total": len(items)}
 
