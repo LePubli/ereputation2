@@ -22,13 +22,13 @@ interface SourcingJob {
 }
 
 const SCRAPER_SOURCES = [
-  { id: 'insee', label: 'INSEE', icon: '🇫🇷', description: 'Base SIRENE officielle — 12M+ entreprises', free: true },
-  { id: 'pages_jaunes', label: 'Pages Jaunes', icon: '📒', description: 'Annuaire avec coordonnées', free: true },
-  { id: 'google_maps', label: 'Google Maps', icon: '🗺️', description: 'Entreprises locales avec avis', free: true },
-  { id: 'societe', label: 'Société.com', icon: '📊', description: 'Données financières et dirigeants', free: true },
-  { id: 'pappers', label: 'Pappers', icon: '📋', description: 'RCS, statuts, dirigeants', free: true },
-  { id: 'bodacc', label: 'BODACC', icon: '⚖️', description: 'Annonces légales et cessations', free: true },
-  { id: 'trustpilot', label: 'Trustpilot', icon: '⭐', description: 'Notes et avis clients', free: true },
+  { id: 'insee', label: 'INSEE', icon: '🇫🇷', description: 'Base SIRENE — seed liste entreprises', free: true },
+  { id: 'pappers', label: 'Pappers', icon: '📋', description: 'RCS + contacts (clé API)', free: false },
+  { id: 'bodacc', label: 'BODACC', icon: '⚖️', description: 'Annonces légales + cessations', free: true },
+  { id: 'pages_jaunes', label: 'Pages Jaunes', icon: '📒', description: 'Enrichit : phone / email / website', free: true },
+  { id: 'google_maps', label: 'Google Maps', icon: '🗺️', description: 'Enrichit : GPS + avis Google', free: true },
+  { id: 'societe', label: 'Société.com', icon: '📊', description: 'Enrichit : CA + dirigeants', free: true },
+  { id: 'trustpilot', label: 'Trustpilot', icon: '⭐', description: 'Enrichit : note + avis clients', free: true },
 ];
 
 const NAF_CODES = [
@@ -65,9 +65,17 @@ export default function SourcingPage() {
   const [launching, setLaunching] = useState(false);
   const [showForm, setShowForm] = useState(false);
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<{
+    name: string;
+    sources: string[];
+    region: string;
+    naf_code: string;
+    city: string;
+    query: string;
+    limit: number;
+  }>({
     name: '',
-    source: 'insee',
+    sources: ['insee'],
     region: '',
     naf_code: '',
     city: '',
@@ -89,12 +97,12 @@ export default function SourcingPage() {
   };
 
   const launchJob = async () => {
-    if (!form.name || !form.source) return;
+    if (!form.name || form.sources.length === 0) return;
     setLaunching(true);
     try {
       await apiClient.post('/sourcing/jobs', {
         name: form.name,
-        source: form.source,
+        sources: form.sources,
         config: {
           region: form.region || undefined,
           naf_code: form.naf_code || undefined,
@@ -104,7 +112,7 @@ export default function SourcingPage() {
         },
       });
       setShowForm(false);
-      setForm({ name: '', source: 'insee', region: '', naf_code: '', city: '', query: '', limit: 100 });
+      setForm({ name: '', sources: ['insee'], region: '', naf_code: '', city: '', query: '', limit: 100 });
       loadJobs();
     } finally { setLaunching(false); }
   };
@@ -114,6 +122,13 @@ export default function SourcingPage() {
     loadJobs();
   };
 
+  const toggleSource = (id: string) => {
+    setForm(f => ({
+      ...f,
+      sources: f.sources.includes(id) ? f.sources.filter(s => s !== id) : [...f.sources, id],
+    }));
+  };
+
   const runningJobs = jobs.filter(j => j.status === 'running');
   const completedToday = jobs.filter(j => j.status === 'completed' && j.completed_at && new Date(j.completed_at).toDateString() === new Date().toDateString());
   const totalFound = jobs.filter(j => j.status === 'completed').reduce((a, j) => a + (j.found_count || 0), 0);
@@ -121,14 +136,13 @@ export default function SourcingPage() {
   return (
     <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', height: '100%', boxSizing: 'border-box', overflow: 'hidden' }}>
 
-      {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
           <h1 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
-            Sourcing — Scraping en masse
+            Sourcing — Scraping multi-sources
           </h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.8125rem', margin: '0.25rem 0 0' }}>
-            Alimentez votre base prospects via {SCRAPER_SOURCES.length} sources gratuites
+            Combinez {SCRAPER_SOURCES.length} sources pour enrichir votre base prospects
           </p>
         </div>
         <button
@@ -142,7 +156,6 @@ export default function SourcingPage() {
         >⚡ Lancer un scraping</button>
       </div>
 
-      {/* KPIs */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.875rem' }}>
         {[
           { label: 'Jobs en cours', value: runningJobs.length, color: '#d29922', icon: '⚙️' },
@@ -167,7 +180,6 @@ export default function SourcingPage() {
         ))}
       </div>
 
-      {/* Jobs list */}
       <div style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
         {loading ? (
           Array.from({ length: 4 }).map((_, i) => (
@@ -184,8 +196,8 @@ export default function SourcingPage() {
           </div>
         ) : (
           jobs.map(job => {
-            const statusCfg = STATUS_CONFIG[job.status];
-            const src = SCRAPER_SOURCES.find(s => s.id === job.source);
+            const statusCfg = STATUS_CONFIG[job.status] || STATUS_CONFIG.pending;
+            const sourceIds = (job.source || '').split(',').filter(Boolean);
             return (
               <div key={job.id} style={{
                 background: 'var(--bg-card)', border: '1px solid var(--border-color)',
@@ -193,8 +205,8 @@ export default function SourcingPage() {
                 borderRadius: '8px', padding: '1rem',
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.625rem' }}>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', marginBottom: '0.25rem' }}>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', marginBottom: '0.25rem', flexWrap: 'wrap' }}>
                       <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.875rem' }}>{job.name}</span>
                       <span style={{
                         padding: '1px 8px', borderRadius: '20px', fontSize: '0.7rem',
@@ -202,20 +214,24 @@ export default function SourcingPage() {
                       }}>
                         {statusCfg.icon} {statusCfg.label}
                       </span>
-                      {src && (
-                        <span style={{
-                          padding: '1px 8px', borderRadius: '4px', fontSize: '0.7rem',
-                          background: 'var(--bg-tertiary)', color: 'var(--text-secondary)',
-                        }}>
-                          {src.icon} {src.label}
-                        </span>
-                      )}
+                      {sourceIds.map(sid => {
+                        const src = SCRAPER_SOURCES.find(s => s.id === sid);
+                        if (!src) return null;
+                        return (
+                          <span key={sid} style={{
+                            padding: '1px 8px', borderRadius: '4px', fontSize: '0.7rem',
+                            background: 'var(--bg-tertiary)', color: 'var(--text-secondary)',
+                          }}>
+                            {src.icon} {src.label}
+                          </span>
+                        );
+                      })}
                     </div>
-                    <div style={{ display: 'flex', gap: '0.75rem', color: 'var(--text-muted)', fontSize: '0.75rem' }}>
-                      {job.config.region && <span>📍 {job.config.region}</span>}
-                      {job.config.naf_code && <span>🏭 NAF {job.config.naf_code}</span>}
-                      {job.config.city && <span>🏙️ {job.config.city}</span>}
-                      <span>🎯 Limite: {job.config.limit}</span>
+                    <div style={{ display: 'flex', gap: '0.75rem', color: 'var(--text-muted)', fontSize: '0.75rem', flexWrap: 'wrap' }}>
+                      {job.config?.region && <span>📍 {job.config.region}</span>}
+                      {job.config?.naf_code && <span>🏭 NAF {job.config.naf_code}</span>}
+                      {job.config?.city && <span>🏙️ {job.config.city}</span>}
+                      {job.config?.limit && <span>🎯 Limite: {job.config.limit}</span>}
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexShrink: 0 }}>
@@ -243,7 +259,6 @@ export default function SourcingPage() {
                   </div>
                 </div>
 
-                {/* Progress bar */}
                 {job.status === 'running' && (
                   <div>
                     <div style={{ height: '4px', background: 'var(--bg-tertiary)', borderRadius: '2px', overflow: 'hidden' }}>
@@ -255,11 +270,6 @@ export default function SourcingPage() {
                         transition: 'width 0.3s ease',
                       }} />
                     </div>
-                    {job.progress !== undefined && (
-                      <div style={{ color: 'var(--text-muted)', fontSize: '0.7rem', marginTop: '0.25rem', textAlign: 'right' }}>
-                        {job.progress}%
-                      </div>
-                    )}
                   </div>
                 )}
 
@@ -278,7 +288,6 @@ export default function SourcingPage() {
         )}
       </div>
 
-      {/* Create job modal */}
       {showForm && (
         <div
           style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}
@@ -293,7 +302,6 @@ export default function SourcingPage() {
               ⚡ Nouveau job de scraping
             </h2>
 
-            {/* Job name */}
             <div style={{ marginBottom: '1rem' }}>
               <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.375rem' }}>Nom du job *</label>
               <input
@@ -304,31 +312,48 @@ export default function SourcingPage() {
               />
             </div>
 
-            {/* Source selection */}
             <div style={{ marginBottom: '1.25rem' }}>
-              <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Source *</label>
+              <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
+                Sources * <span style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: '0.7rem' }}>
+                  ({form.sources.length} sélectionnée{form.sources.length > 1 ? 's' : ''} — multi-sélection, combine et enrichit)
+                </span>
+              </label>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
-                {SCRAPER_SOURCES.map(src => (
-                  <button
-                    key={src.id}
-                    onClick={() => setForm(f => ({ ...f, source: src.id }))}
-                    style={{
-                      padding: '0.75rem', borderRadius: '8px', cursor: 'pointer', textAlign: 'left',
-                      background: form.source === src.id ? 'rgba(47,129,247,0.1)' : 'var(--bg-secondary)',
-                      border: `1px solid ${form.source === src.id ? 'rgba(47,129,247,0.4)' : 'var(--border-color)'}`,
-                      transition: 'all 0.1s',
-                    }}
-                  >
-                    <div style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.875rem', marginBottom: '0.125rem' }}>
-                      {src.icon} {src.label}
-                    </div>
-                    <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>{src.description}</div>
-                  </button>
-                ))}
+                {SCRAPER_SOURCES.map(src => {
+                  const selected = form.sources.includes(src.id);
+                  return (
+                    <button
+                      key={src.id}
+                      onClick={() => toggleSource(src.id)}
+                      style={{
+                        padding: '0.75rem', borderRadius: '8px', cursor: 'pointer', textAlign: 'left',
+                        background: selected ? 'rgba(47,129,247,0.1)' : 'var(--bg-secondary)',
+                        border: `1px solid ${selected ? 'rgba(47,129,247,0.4)' : 'var(--border-color)'}`,
+                        transition: 'all 0.1s', display: 'flex', alignItems: 'flex-start', gap: '0.5rem',
+                      }}
+                    >
+                      <div style={{
+                        width: '16px', height: '16px', borderRadius: '4px',
+                        border: `1.5px solid ${selected ? 'var(--accent-blue)' : 'var(--border-color)'}`,
+                        background: selected ? 'var(--accent-blue)' : 'transparent',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        marginTop: '2px', flexShrink: 0,
+                      }}>
+                        {selected && <span style={{ color: '#fff', fontSize: '0.625rem', fontWeight: 700 }}>✓</span>}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.875rem', marginBottom: '0.125rem' }}>
+                          {src.icon} {src.label}
+                          {!src.free && <span style={{ marginLeft: '0.375rem', fontSize: '0.65rem', padding: '1px 5px', borderRadius: '3px', background: 'rgba(210,153,34,0.15)', color: '#d29922' }}>Clé requise</span>}
+                        </div>
+                        <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>{src.description}</div>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
-            {/* Filters */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1rem' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.375rem' }}>Région</label>
@@ -355,9 +380,21 @@ export default function SourcingPage() {
                 <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.375rem' }}>Limite de résultats</label>
                 <select value={form.limit} onChange={e => setForm(f => ({ ...f, limit: parseInt(e.target.value) }))}
                   style={{ width: '100%', padding: '0.5rem 0.75rem', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '6px', color: 'var(--text-primary)', fontSize: '0.875rem', outline: 'none' }}>
-                  {[50, 100, 250, 500, 1000, 5000].map(n => <option key={n} value={n}>{n.toLocaleString('fr-FR')} résultats</option>)}
+                  {[25, 50, 100, 250, 500].map(n => <option key={n} value={n}>{n.toLocaleString('fr-FR')} résultats</option>)}
                 </select>
               </div>
+            </div>
+
+            <div style={{ marginBottom: '1.25rem' }}>
+              <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.375rem' }}>
+                Mot-clé / activité <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(optionnel)</span>
+              </label>
+              <input
+                type="text" placeholder="Ex: boulangerie, plombier, agence digitale..."
+                value={form.query}
+                onChange={e => setForm(f => ({ ...f, query: e.target.value }))}
+                style={{ width: '100%', padding: '0.5rem 0.75rem', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '6px', color: 'var(--text-primary)', fontSize: '0.875rem', outline: 'none', boxSizing: 'border-box' }}
+              />
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
@@ -365,9 +402,9 @@ export default function SourcingPage() {
                 style={{ padding: '0.5rem 1rem', borderRadius: '8px', background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.875rem' }}>
                 Annuler
               </button>
-              <button onClick={launchJob} disabled={launching || !form.name}
-                style={{ padding: '0.5rem 1.25rem', borderRadius: '8px', background: 'var(--accent-blue)', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '0.875rem', opacity: launching || !form.name ? 0.7 : 1 }}>
-                {launching ? 'Lancement...' : '⚡ Lancer le scraping'}
+              <button onClick={launchJob} disabled={launching || !form.name || form.sources.length === 0}
+                style={{ padding: '0.5rem 1.25rem', borderRadius: '8px', background: 'var(--accent-blue)', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '0.875rem', opacity: (launching || !form.name || form.sources.length === 0) ? 0.5 : 1 }}>
+                {launching ? 'Lancement...' : `⚡ Lancer (${form.sources.length} source${form.sources.length > 1 ? 's' : ''})`}
               </button>
             </div>
           </div>
