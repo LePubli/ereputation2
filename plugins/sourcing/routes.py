@@ -21,6 +21,14 @@ _JOBS: dict[str, dict[str, Any]] = {}
 SUPPORTED_SOURCES = {"insee", "pappers", "bodacc", "pages_jaunes", "societe", "trustpilot", "google_maps", "all"}
 
 
+def _trunc(v: Any, n: int) -> str | None:
+    """Tronque une valeur string à n caractères. Retourne None si vide."""
+    if v is None:
+        return None
+    s = str(v).strip()
+    return s[:n] if s else None
+
+
 class SourcingJobConfig(BaseModel):
     region: str | None = None
     naf_code: str | None = None
@@ -43,7 +51,6 @@ async def create_job(
     current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
 ):
-    # Résout sources actives
     if payload.sources:
         sources = [s.lower() for s in payload.sources if s.lower() in SUPPORTED_SOURCES]
     elif payload.source:
@@ -168,7 +175,6 @@ async def run_scraping_job(job_id: str, sources: list[str], cfg: SourcingJobConf
     job["status"] = "running"
 
     try:
-        # Construit query
         query_parts = []
         if cfg.naf_code:
             query_parts.append(cfg.naf_code)
@@ -180,7 +186,6 @@ async def run_scraping_job(job_id: str, sources: list[str], cfg: SourcingJobConf
             query_parts.append(cfg.query)
         query = " ".join(query_parts) if query_parts else None
 
-        # Expansion "all"
         active = set(sources)
         if "all" in active:
             active = {"insee", "pappers", "bodacc"}
@@ -194,7 +199,7 @@ async def run_scraping_job(job_id: str, sources: list[str], cfg: SourcingJobConf
         if "bodacc" in active:
             seed_results.extend(await _scrape_bodacc(query, cfg))
 
-        # Si pas de seed mais sources d'enrichissement seules → fallback INSEE
+        # Fallback INSEE si seules sources d'enrichissement sélectionnées
         if not seed_results and query:
             seed_results = await _scrape_insee(query, cfg)
 
@@ -287,7 +292,7 @@ async def run_scraping_job(job_id: str, sources: list[str], cfg: SourcingJobConf
         await _persist_job(job_id, "failed", job.get("found_count", 0), 0, str(e)[:200])
 
 
-# ─────────────────────────────────────────── Scrapers seed (génèrent SIREN)
+# ─────────────────────────────────────────── Scrapers seed
 async def _scrape_insee(query: str | None, cfg: SourcingJobConfig) -> list[dict]:
     import httpx
     if not query:
@@ -304,20 +309,21 @@ async def _scrape_insee(query: str | None, cfg: SourcingJobConfig) -> list[dict]
             results = []
             for e in data.get("results", []):
                 siege = e.get("siege") or {}
+                cp = siege.get("code_postal") or ""
                 results.append({
                     "_source": "insee",
-                    "siren": e.get("siren"),
-                    "siret": siege.get("siret"),
-                    "company_name": e.get("nom_complet") or e.get("nom_raison_sociale"),
-                    "naf_code": siege.get("activite_principale"),
-                    "naf_label": e.get("activite_principale_libelle"),
-                    "legal_form": e.get("nature_juridique_libelle"),
-                    "address": siege.get("adresse"),
-                    "postal_code": siege.get("code_postal"),
-                    "city": siege.get("libelle_commune"),
-                    "department": (siege.get("code_postal") or "")[:2] or None,
-                    "region": siege.get("region"),
-                    "employee_range": e.get("tranche_effectif_salarie"),
+                    "siren": _trunc(e.get("siren"), 9),
+                    "siret": _trunc(siege.get("siret"), 14),
+                    "company_name": _trunc(e.get("nom_complet") or e.get("nom_raison_sociale"), 500),
+                    "naf_code": _trunc(siege.get("activite_principale"), 10),
+                    "naf_label": _trunc(e.get("activite_principale_libelle"), 255),
+                    "legal_form": _trunc(e.get("nature_juridique_libelle"), 100),
+                    "address": _trunc(siege.get("adresse"), 500),
+                    "postal_code": _trunc(cp, 10),
+                    "city": _trunc(siege.get("libelle_commune"), 100),
+                    "department": _trunc(cp[:2] if cp else None, 3),
+                    "region": _trunc(siege.get("region"), 100),
+                    "employee_range": _trunc(e.get("tranche_effectif_salarie"), 50),
                 })
             return results
     except Exception as e:
@@ -347,22 +353,23 @@ async def _scrape_pappers(query: str | None, cfg: SourcingJobConfig) -> list[dic
             results = []
             for e in data.get("resultats", []):
                 siege = e.get("siege") or {}
+                cp = siege.get("code_postal") or ""
                 results.append({
                     "_source": "pappers",
-                    "siren": e.get("siren"),
-                    "siret": siege.get("siret"),
-                    "company_name": e.get("nom_entreprise"),
-                    "naf_code": e.get("code_naf"),
-                    "naf_label": e.get("libelle_code_naf"),
-                    "legal_form": e.get("forme_juridique"),
-                    "address": siege.get("adresse_ligne_1"),
-                    "postal_code": siege.get("code_postal"),
-                    "city": siege.get("ville"),
-                    "department": (siege.get("code_postal") or "")[:2] or None,
-                    "employee_range": e.get("tranche_effectif"),
-                    "phone": e.get("telephone"),
-                    "email": e.get("email"),
-                    "website": e.get("site_web"),
+                    "siren": _trunc(e.get("siren"), 9),
+                    "siret": _trunc(siege.get("siret"), 14),
+                    "company_name": _trunc(e.get("nom_entreprise"), 500),
+                    "naf_code": _trunc(e.get("code_naf"), 10),
+                    "naf_label": _trunc(e.get("libelle_code_naf"), 255),
+                    "legal_form": _trunc(e.get("forme_juridique"), 100),
+                    "address": _trunc(siege.get("adresse_ligne_1"), 500),
+                    "postal_code": _trunc(cp, 10),
+                    "city": _trunc(siege.get("ville"), 100),
+                    "department": _trunc(cp[:2] if cp else None, 3),
+                    "employee_range": _trunc(e.get("tranche_effectif"), 50),
+                    "phone": _trunc(e.get("telephone"), 30),
+                    "email": _trunc(e.get("email"), 255),
+                    "website": _trunc(e.get("site_web"), 500),
                 })
             return results
     except Exception as e:
@@ -403,14 +410,15 @@ async def _scrape_bodacc(query: str | None, cfg: SourcingJobConfig) -> list[dict
                 name = fields.get("commercant") or fields.get("denomination")
                 if not name:
                     continue
+                cp = str(fields.get("cp") or "")
                 raw.append({
                     "_source": "bodacc",
-                    "siren": siren,
-                    "company_name": name,
-                    "city": fields.get("ville"),
-                    "postal_code": fields.get("cp"),
-                    "department": (str(fields.get("cp") or ""))[:2] or None,
-                    "region": fields.get("region_nom_officiel"),
+                    "siren": _trunc(siren, 9),
+                    "company_name": _trunc(name, 500),
+                    "city": _trunc(fields.get("ville"), 100),
+                    "postal_code": _trunc(cp, 10),
+                    "department": _trunc(cp[:2] if cp else None, 3),
+                    "region": _trunc(fields.get("region_nom_officiel"), 100),
                 })
             # Lookup INSEE pour SIREN manquant
             enriched = []
@@ -452,25 +460,27 @@ async def _enrich_results(prospects: list[dict], sources: set[str]):
 
 
 async def _enrich_pages_jaunes(p: dict):
+    """Récupère phone depuis le premier résultat Pages Jaunes."""
     try:
         from services.scrapers.pages_jaunes import PagesJaunesScraper
         scraper = PagesJaunesScraper()
         ident = f"{p.get('company_name', '')}|{p.get('city', '')}"
         result = await scraper.fetch(ident)
         if result.success and result.data:
-            d = result.data
-            if d.get("phone") and not p.get("phone"):
-                p["phone"] = d["phone"]
-            if d.get("email") and not p.get("email"):
-                p["email"] = d["email"]
-            if d.get("website") and not p.get("website"):
-                p["website"] = d["website"]
-            p.setdefault("_sources", []).append("pages_jaunes")
+            results_list = result.data.get("results", [])
+            if results_list:
+                first = results_list[0]
+                if first.get("phone") and not p.get("phone"):
+                    p["phone"] = _trunc(first["phone"], 30)
+                if first.get("address") and not p.get("address"):
+                    p["address"] = _trunc(first["address"], 500)
+                p.setdefault("_sources", []).append("pages_jaunes")
     except Exception as e:
         logger.debug(f"[PJ enrich] {p.get('company_name')}: {e}")
 
 
 async def _enrich_societe(p: dict):
+    """Données financières + dirigeants depuis Société.com."""
     try:
         from services.scrapers.societe import SocieteScraper
         siren = p.get("siren")
@@ -480,16 +490,20 @@ async def _enrich_societe(p: dict):
         result = await scraper.fetch(siren)
         if result.success and result.data:
             d = result.data
+            extras: dict = {}
             if d.get("revenue_text"):
-                p["_revenue_text"] = d["revenue_text"]
+                extras["revenue_text"] = d["revenue_text"]
             if d.get("directors_names"):
-                p["_directors"] = d["directors_names"]
-            p.setdefault("_sources", []).append("societe")
+                extras["directors"] = d["directors_names"]
+            if extras:
+                p["_enrichment"] = {**p.get("_enrichment", {}), **extras}
+                p.setdefault("_sources", []).append("societe")
     except Exception as e:
         logger.debug(f"[Societe enrich] {p.get('siren')}: {e}")
 
 
 async def _enrich_trustpilot(p: dict):
+    """Note + nb avis Trustpilot."""
     try:
         from services.scrapers.trustpilot import TrustpilotScraper
         scraper = TrustpilotScraper()
@@ -497,16 +511,20 @@ async def _enrich_trustpilot(p: dict):
         result = await scraper.fetch(ident)
         if result.success and result.data:
             d = result.data
+            extras: dict = {}
             if d.get("rating"):
-                p["_trustpilot_rating"] = d["rating"]
+                extras["trustpilot_rating"] = d["rating"]
             if d.get("review_count"):
-                p["_trustpilot_reviews"] = d["review_count"]
-            p.setdefault("_sources", []).append("trustpilot")
+                extras["trustpilot_reviews"] = d["review_count"]
+            if extras:
+                p["_enrichment"] = {**p.get("_enrichment", {}), **extras}
+                p.setdefault("_sources", []).append("trustpilot")
     except Exception as e:
         logger.debug(f"[Trustpilot enrich] {p.get('company_name')}: {e}")
 
 
 async def _enrich_google_maps(p: dict):
+    """Coordonnées GPS + rating Google."""
     try:
         from services.scrapers.google_maps import GoogleMapsScraper
         scraper = GoogleMapsScraper()
@@ -515,9 +533,11 @@ async def _enrich_google_maps(p: dict):
         if result.success and result.data:
             d = result.data
             if d.get("phone") and not p.get("phone"):
-                p["phone"] = d["phone"]
+                p["phone"] = _trunc(d["phone"], 30)
             if d.get("website") and not p.get("website"):
-                p["website"] = d["website"]
+                p["website"] = _trunc(d["website"], 500)
+            if d.get("address") and not p.get("address"):
+                p["address"] = _trunc(d["address"], 500)
             p.setdefault("_sources", []).append("google_maps")
     except Exception as e:
         logger.debug(f"[GMaps enrich] {p.get('company_name')}: {e}")
