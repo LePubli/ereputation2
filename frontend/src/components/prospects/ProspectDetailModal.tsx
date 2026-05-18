@@ -17,22 +17,24 @@ interface Prospect {
   siret?: string;
   naf_code?: string;
   naf_label?: string;
+  legal_form?: string;
   city?: string;
   region?: string;
   postal_code?: string;
   address?: string;
+  department?: string;
   phone?: string;
   email?: string;
   website?: string;
-  employee_count?: number;
-  revenue_range?: string;
-  score?: number;
-  status?: string;
+  employee_range?: string;
+  propensity_score?: number;
+  propensity_category?: string;
+  estimated_revenue?: number;
   pipeline_stage?: string;
-  linkedin_url?: string;
+  sources_used?: string[];
+  enrichment?: Record<string, unknown>;
+  tags?: string[];
   created_at?: string;
-  sources?: string[];
-  enrichment_data?: Record<string, unknown>;
 }
 
 interface Props {
@@ -94,7 +96,7 @@ export default function ProspectDetailModal({ prospect, onClose, onStageChange }
     onStageChange?.(prospect.id, stage);
   };
 
-  const score = prospect.score ?? 0;
+  const score = prospect.propensity_score ?? 0;
 
   return (
     <div
@@ -256,11 +258,12 @@ export default function ProspectDetailModal({ prospect, onClose, onStageChange }
 
               {/* Entreprise */}
               <InfoCard title="🏢 Entreprise">
-                <InfoRow label="Effectif" value={prospect.employee_count ? `${prospect.employee_count} salariés` : undefined} />
-                <InfoRow label="CA estimé" value={prospect.revenue_range} />
-                <InfoRow label="SIREN" value={prospect.siren} />
-                <InfoRow label="SIRET" value={prospect.siret} />
-              </InfoCard>
+  <InfoRow label="Forme juridique" value={prospect.legal_form} />
+  <InfoRow label="Effectif" value={prospect.employee_range} />
+  <InfoRow label="CA estimé" value={prospect.estimated_revenue ? `${prospect.estimated_revenue.toLocaleString('fr-FR')} €` : undefined} />
+  <InfoRow label="SIREN" value={prospect.siren} />
+  <InfoRow label="SIRET" value={prospect.siret} />
+</InfoCard>
 
               {/* Localisation */}
               <InfoCard title="📍 Localisation">
@@ -271,20 +274,23 @@ export default function ProspectDetailModal({ prospect, onClose, onStageChange }
               </InfoCard>
 
               {/* Sources */}
-              <InfoCard title="🔗 Sources de données">
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.5rem' }}>
-                  {(prospect.sources || []).map(s => (
-                    <span key={s} style={{
-                      padding: '2px 10px', borderRadius: '20px',
-                      background: 'rgba(47,129,247,0.1)', border: '1px solid rgba(47,129,247,0.3)',
-                      color: 'var(--accent-blue)', fontSize: '0.75rem',
-                    }}>{s}</span>
-                  ))}
-                  {!prospect.sources?.length && (
-                    <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Aucune source</span>
-                  )}
-                </div>
-              </InfoCard>
+             <InfoCard title="🔗 Sources de données">
+  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.5rem' }}>
+    {(prospect.sources_used && prospect.sources_used.length > 0) ? (
+      prospect.sources_used.map(s => (
+        <span key={s} style={{
+          padding: '2px 10px', borderRadius: '20px',
+          background: 'rgba(47,129,247,0.1)', border: '1px solid rgba(47,129,247,0.3)',
+          color: 'var(--accent-blue)', fontSize: '0.75rem',
+        }}>
+          {s}
+        </span>
+      ))
+    ) : (
+      <span style={{ color: 'var(--text-muted)', fontSize: '0.8125rem' }}>Aucune source enregistrée</span>
+    )}
+  </div>
+</InfoCard>
             </div>
           )}
 
