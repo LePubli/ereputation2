@@ -68,7 +68,7 @@ async def create_job(
     try:
         await db.execute(text("""
             INSERT INTO sourcing_jobs (id, name, source, config, status, created_at, created_by)
-            VALUES (:id, :name, :source, :config::jsonb, :status, :created_at, :created_by)
+            VALUES (:id, :name, :source, CAST(:config AS jsonb), :status, :created_at, :created_by)
             ON CONFLICT DO NOTHING
         """), {
             "id": job_id, "name": payload.name, "source": source_label,
@@ -170,10 +170,14 @@ async def run_scraping_job(job_id: str, sources: list[str], cfg: SourcingJobConf
     try:
         # Construit query
         query_parts = []
-        if cfg.naf_code: query_parts.append(cfg.naf_code)
-        if cfg.city: query_parts.append(cfg.city)
-        if cfg.region: query_parts.append(cfg.region)
-        if cfg.query: query_parts.append(cfg.query)
+        if cfg.naf_code:
+            query_parts.append(cfg.naf_code)
+        if cfg.city:
+            query_parts.append(cfg.city)
+        if cfg.region:
+            query_parts.append(cfg.region)
+        if cfg.query:
+            query_parts.append(cfg.query)
         query = " ".join(query_parts) if query_parts else None
 
         # Expansion "all"
@@ -201,7 +205,6 @@ async def run_scraping_job(job_id: str, sources: list[str], cfg: SourcingJobConf
             if not siren:
                 continue
             if siren in by_siren:
-                # Merge : champs vides ← nouvelle source
                 for k, v in r.items():
                     if v and not by_siren[siren].get(k):
                         by_siren[siren][k] = v
@@ -212,7 +215,7 @@ async def run_scraping_job(job_id: str, sources: list[str], cfg: SourcingJobConf
         unique = list(by_siren.values())[: cfg.limit]
         job["found_count"] = len(unique)
 
-        # Step 2 : enrichissement (Pages Jaunes / Société / Trustpilot / Google Maps)
+        # Step 2 : enrichissement
         enrich_sources = active & {"pages_jaunes", "societe", "trustpilot", "google_maps"}
         if enrich_sources:
             await _enrich_results(unique, enrich_sources)
@@ -232,7 +235,6 @@ async def run_scraping_job(job_id: str, sources: list[str], cfg: SourcingJobConf
                     await db.execute(select(Prospect).where(Prospect.siren == siren))
                 ).scalar_one_or_none()
                 if existing:
-                    # Enrichir l'existant : champs vides ← nouvelles données
                     updated = False
                     for k in ("phone", "email", "website", "address", "postal_code", "city", "employee_range", "naf_code", "naf_label"):
                         if entry.get(k) and not getattr(existing, k, None):
@@ -313,7 +315,7 @@ async def _scrape_insee(query: str | None, cfg: SourcingJobConfig) -> list[dict]
                     "address": siege.get("adresse"),
                     "postal_code": siege.get("code_postal"),
                     "city": siege.get("libelle_commune"),
-                    "department": siege.get("departement"),
+                    "department": (siege.get("code_postal") or "")[:2] or None,
                     "region": siege.get("region"),
                     "employee_range": e.get("tranche_effectif_salarie"),
                 })
@@ -324,7 +326,8 @@ async def _scrape_insee(query: str | None, cfg: SourcingJobConfig) -> list[dict]
 
 
 async def _scrape_pappers(query: str | None, cfg: SourcingJobConfig) -> list[dict]:
-    import httpx, os
+    import httpx
+    import os
     api_key = os.getenv("PAPPERS_API_KEY")
     if not api_key or not query:
         return []
@@ -355,6 +358,7 @@ async def _scrape_pappers(query: str | None, cfg: SourcingJobConfig) -> list[dic
                     "address": siege.get("adresse_ligne_1"),
                     "postal_code": siege.get("code_postal"),
                     "city": siege.get("ville"),
+                    "department": (siege.get("code_postal") or "")[:2] or None,
                     "employee_range": e.get("tranche_effectif"),
                     "phone": e.get("telephone"),
                     "email": e.get("email"),
@@ -401,10 +405,11 @@ async def _scrape_bodacc(query: str | None, cfg: SourcingJobConfig) -> list[dict
                     continue
                 raw.append({
                     "_source": "bodacc",
-                    "siren": siren, "company_name": name,
+                    "siren": siren,
+                    "company_name": name,
                     "city": fields.get("ville"),
                     "postal_code": fields.get("cp"),
-                    "department": fields.get("departement_nom_officiel"),
+                    "department": (str(fields.get("cp") or ""))[:2] or None,
                     "region": fields.get("region_nom_officiel"),
                 })
             # Lookup INSEE pour SIREN manquant
@@ -413,7 +418,8 @@ async def _scrape_bodacc(query: str | None, cfg: SourcingJobConfig) -> list[dict
                 if r.get("siren"):
                     enriched.append(r)
                     continue
-                lookup = await _scrape_insee(f"{r['company_name']} {r.get('city') or ''}".strip(), SourcingJobConfig(limit=1))
+                lookup_q = f"{r['company_name']} {r.get('city') or ''}".strip()
+                lookup = await _scrape_insee(lookup_q, SourcingJobConfig(limit=1))
                 if lookup:
                     merged = {**lookup[0], **{k: v for k, v in r.items() if v}}
                     merged["_source"] = "bodacc+insee"
@@ -424,10 +430,9 @@ async def _scrape_bodacc(query: str | None, cfg: SourcingJobConfig) -> list[dict
         return []
 
 
-# ─────────────────────────────────────────── Enrichissement (par prospect existant)
+# ─────────────────────────────────────────── Enrichissement
 async def _enrich_results(prospects: list[dict], sources: set[str]):
-    """Enrichit chaque prospect en mémoire avec Pages Jaunes / Société / Trustpilot."""
-    semaphore = asyncio.Semaphore(3)  # rate limit
+    semaphore = asyncio.Semaphore(3)
 
     async def enrich_one(p: dict):
         async with semaphore:
@@ -447,7 +452,6 @@ async def _enrich_results(prospects: list[dict], sources: set[str]):
 
 
 async def _enrich_pages_jaunes(p: dict):
-    """Récupère phone + email + website depuis Pages Jaunes."""
     try:
         from services.scrapers.pages_jaunes import PagesJaunesScraper
         scraper = PagesJaunesScraper()
@@ -467,7 +471,6 @@ async def _enrich_pages_jaunes(p: dict):
 
 
 async def _enrich_societe(p: dict):
-    """Données financières + dirigeants depuis Société.com."""
     try:
         from services.scrapers.societe import SocieteScraper
         siren = p.get("siren")
@@ -487,7 +490,6 @@ async def _enrich_societe(p: dict):
 
 
 async def _enrich_trustpilot(p: dict):
-    """Note + nb avis Trustpilot."""
     try:
         from services.scrapers.trustpilot import TrustpilotScraper
         scraper = TrustpilotScraper()
@@ -505,7 +507,6 @@ async def _enrich_trustpilot(p: dict):
 
 
 async def _enrich_google_maps(p: dict):
-    """Coordonnées GPS + rating Google."""
     try:
         from services.scrapers.google_maps import GoogleMapsScraper
         scraper = GoogleMapsScraper()
