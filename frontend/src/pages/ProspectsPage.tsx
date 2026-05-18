@@ -6,26 +6,27 @@ import BulkActionsBar from '../components/ui/BulkActionsBar';
 interface Prospect {
   id: string;
   company_name: string;
-  city?: string;
-  region?: string;
+  siren?: string;
+  siret?: string;
   naf_code?: string;
   naf_label?: string;
+  legal_form?: string;
+  city?: string;
+  region?: string;
+  postal_code?: string;
+  address?: string;
   phone?: string;
   email?: string;
   website?: string;
-  score?: number;
-  status?: string;
-  pipeline_stage?: string;
-  employee_count?: number;
-  siren?: string;
+  employee_range?: string;
+  propensity_score?: number;
+  propensity_category?: string;
+  estimated_revenue?: number;
+  stage_id?: string;
+  sources_used?: string[];
+  enrichment?: Record<string, unknown>;
+  tags?: string[];
   created_at?: string;
-  sources?: string[];
-  enrichment_data?: Record<string, unknown>;
-  siret?: string;
-  postal_code?: string;
-  address?: string;
-  linkedin_url?: string;
-  revenue_range?: string;
 }
 
 interface Filters {
