@@ -61,7 +61,8 @@ async def create_job(
         sources = ["insee"]
 
     job_id = str(uuid.uuid4())
-    now = datetime.now(timezone.utc).isoformat()
+    now_dt = datetime.now(timezone.utc)
+    now = now_dt.isoformat()
     source_label = ",".join(sources)
 
     job = {
