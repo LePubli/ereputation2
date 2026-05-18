@@ -2,9 +2,9 @@
 from datetime import datetime, timezone
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
-from sqlalchemy import desc, select, func
+from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.auth import CurrentUser
@@ -15,16 +15,15 @@ from models.database.prospect import Prospect
 router = APIRouter(prefix="/api/v1/activities", tags=["activities"])
 
 
-# --- Schémas ---
-
 class ActivityCreate(BaseModel):
     prospect_id: UUID
-    type: str  # call, email, meeting, note, task, linkedin, other
+    type: str
     title: str
     body: str | None = None
-    outcome: str | None = None  # positive, neutral, negative
+    outcome: str | None = None
     scheduled_at: datetime | None = None
     is_completed: bool = False
+
 
 class ActivityUpdate(BaseModel):
     title: str | None = None
@@ -33,6 +32,7 @@ class ActivityUpdate(BaseModel):
     scheduled_at: datetime | None = None
     is_completed: bool | None = None
     completed_at: datetime | None = None
+
 
 class ActivityRead(BaseModel):
     id: UUID
@@ -52,15 +52,30 @@ class ActivityRead(BaseModel):
         from_attributes = True
 
 
-# --- Endpoints ---
-
-@router.get("/prospect/{prospect_id}", response_model=list[ActivityRead])
+# GET "" et "/" acceptent ?prospect_id= (query param)
+# GET "/prospect/{id}" conservé pour compat legacy
+@router.get("", response_model=list[ActivityRead])
+@router.get("/", response_model=list[ActivityRead], include_in_schema=False)
 async def list_activities(
+    current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
+    prospect_id: UUID | None = Query(None),
+    limit: int = Query(50, le=200),
+):
+    stmt = select(Activity).order_by(desc(Activity.created_at)).limit(limit)
+    if prospect_id:
+        stmt = stmt.where(Activity.prospect_id == prospect_id)
+    result = await db.execute(stmt)
+    return [ActivityRead.model_validate(a) for a in result.scalars().all()]
+
+
+@router.get("/prospect/{prospect_id}", response_model=list[ActivityRead], include_in_schema=False)
+async def list_activities_by_path(
     prospect_id: UUID,
     current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
 ):
-    """Timeline des activités d'un prospect (chronologique inversé)."""
+    """Legacy path param route."""
     stmt = (
         select(Activity)
         .where(Activity.prospect_id == prospect_id)
@@ -76,8 +91,6 @@ async def create_activity(
     current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
 ):
-    """Crée une activité et met à jour le compteur + last_activity_at du prospect."""
-    # Vérif prospect
     prospect = (await db.execute(
         select(Prospect).where(Prospect.id == data.prospect_id)
     )).scalar_one_or_none()
@@ -96,11 +109,8 @@ async def create_activity(
         completed_at=datetime.now(timezone.utc) if data.is_completed else None,
     )
     db.add(activity)
-
-    # Mise à jour prospect
     prospect.activities_count = (prospect.activities_count or 0) + 1
     prospect.last_activity_at = datetime.now(timezone.utc)
-
     await db.commit()
     await db.refresh(activity)
     return ActivityRead.model_validate(activity)
@@ -113,14 +123,14 @@ async def update_activity(
     current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
 ):
-    stmt = select(Activity).where(Activity.id == activity_id)
-    activity = (await db.execute(stmt)).scalar_one_or_none()
+    activity = (await db.execute(
+        select(Activity).where(Activity.id == activity_id)
+    )).scalar_one_or_none()
     if not activity:
         raise HTTPException(status_code=404, detail="Activité introuvable")
 
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(activity, field, value)
-
     if data.is_completed and not activity.completed_at:
         activity.completed_at = datetime.now(timezone.utc)
 
@@ -135,12 +145,12 @@ async def delete_activity(
     current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
 ):
-    stmt = select(Activity).where(Activity.id == activity_id)
-    activity = (await db.execute(stmt)).scalar_one_or_none()
+    activity = (await db.execute(
+        select(Activity).where(Activity.id == activity_id)
+    )).scalar_one_or_none()
     if not activity:
         raise HTTPException(status_code=404, detail="Activité introuvable")
 
-    # Décrémente compteur prospect
     prospect = (await db.execute(
         select(Prospect).where(Prospect.id == activity.prospect_id)
     )).scalar_one_or_none()
