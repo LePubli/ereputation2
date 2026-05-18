@@ -57,3 +57,6 @@ websockets>=12.0
 
 # Phase 5 — Contact Intelligence
 dnspython==2.7.0      # Résolution MX pour vérification SMTP
+
+# --- Playwright (Google Maps scraper) ---
+playwright==1.49.1
