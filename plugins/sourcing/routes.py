@@ -81,7 +81,7 @@ async def create_job(
         """), {
             "id": job_id, "name": payload.name, "source": source_label,
             "config": json.dumps({**payload.config.model_dump(), "sources": sources}),
-            "status": "pending", "created_at": now, "created_by": str(current_user.id),
+            "status": "pending", "created_at": now_dt, "created_by": str(current_user.id),
         })
         await db.commit()
     except Exception as e:
