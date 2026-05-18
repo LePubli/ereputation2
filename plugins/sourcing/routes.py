@@ -22,7 +22,6 @@ SUPPORTED_SOURCES = {"insee", "pappers", "bodacc", "pages_jaunes", "societe", "t
 
 
 def _trunc(v: Any, n: int) -> str | None:
-    """Tronque une valeur string à n caractères. Retourne None si vide."""
     if v is None:
         return None
     s = str(v).strip()
@@ -39,8 +38,8 @@ class SourcingJobConfig(BaseModel):
 
 class SourcingJobCreate(BaseModel):
     name: str
-    source: str | None = None         # legacy single-source
-    sources: list[str] | None = None  # multi-source
+    source: str | None = None
+    sources: list[str] | None = None
     config: SourcingJobConfig
 
 
@@ -163,6 +162,17 @@ async def _persist_job(job_id: str, status: str, found: int, new: int, error: st
         logger.warning(f"[Sourcing] DB persist failed: {e}")
 
 
+async def _lookup_siren(name: str, city: str | None, cfg: SourcingJobConfig) -> tuple[str | None, dict]:
+    """Cherche le SIREN d'une entreprise via INSEE par nom+ville."""
+    q = f"{name} {city or ''}".strip()
+    if not q:
+        return None, {}
+    results = await _scrape_insee(q, SourcingJobConfig(limit=1))
+    if results and results[0].get("siren"):
+        return results[0]["siren"], results[0]
+    return None, {}
+
+
 async def run_scraping_job(job_id: str, sources: list[str], cfg: SourcingJobConfig):
     """Exécute un job multi-sources avec merge enrichi par SIREN."""
     from core.database import AsyncSessionLocal
@@ -177,57 +187,93 @@ async def run_scraping_job(job_id: str, sources: list[str], cfg: SourcingJobConf
 
     try:
         query_parts = []
-        if cfg.naf_code:
-            query_parts.append(cfg.naf_code)
-        if cfg.city:
-            query_parts.append(cfg.city)
-        if cfg.region:
-            query_parts.append(cfg.region)
-        if cfg.query:
-            query_parts.append(cfg.query)
+        if cfg.naf_code: query_parts.append(cfg.naf_code)
+        if cfg.city: query_parts.append(cfg.city)
+        if cfg.region: query_parts.append(cfg.region)
+        if cfg.query: query_parts.append(cfg.query)
         query = " ".join(query_parts) if query_parts else None
 
         active = set(sources)
         if "all" in active:
             active = {"insee", "pappers", "bodacc"}
 
-        # Step 1 : sources principales (génèrent la liste avec SIREN)
-        seed_results: list[dict] = []
+        # ─── STEP 1 : collecte depuis toutes les sources ───
+        raw_results: list[dict] = []
+
         if "insee" in active:
-            seed_results.extend(await _scrape_insee(query, cfg))
+            raw_results.extend(await _scrape_insee(query, cfg))
         if "pappers" in active:
-            seed_results.extend(await _scrape_pappers(query, cfg))
+            raw_results.extend(await _scrape_pappers(query, cfg))
         if "bodacc" in active:
-            seed_results.extend(await _scrape_bodacc(query, cfg))
+            raw_results.extend(await _scrape_bodacc(query, cfg))
+        if "pages_jaunes" in active:
+            raw_results.extend(await _scrape_pages_jaunes_seed(query, cfg))
+        if "google_maps" in active:
+            raw_results.extend(await _scrape_google_maps_seed(query, cfg))
+        if "societe" in active:
+            raw_results.extend(await _scrape_societe_seed(query, cfg))
 
-        # Fallback INSEE si seules sources d'enrichissement sélectionnées
-        if not seed_results and query:
-            seed_results = await _scrape_insee(query, cfg)
+        # Fallback si uniquement enrichissement sélectionné sans seed
+        if not raw_results and query:
+            raw_results = await _scrape_insee(query, cfg)
 
-        # Merge par SIREN
+        # ─── STEP 2 : résolution SIREN pour résultats sans SIREN ───
+        sem = asyncio.Semaphore(5)
+
+        async def resolve_siren(entry: dict) -> dict:
+            if entry.get("siren"):
+                return entry
+            name = entry.get("company_name", "")
+            if not name:
+                return entry
+            async with sem:
+                siren, insee_data = await _lookup_siren(name, entry.get("city"), cfg)
+                if siren:
+                    entry["siren"] = siren
+                    for k, v in insee_data.items():
+                        if v and not entry.get(k) and not k.startswith("_"):
+                            entry[k] = v
+                    entry.setdefault("_sources", [entry.get("_source", "unknown")])
+                    if "insee" not in entry["_sources"]:
+                        entry["_sources"].append("insee")
+            return entry
+
+        resolved = list(await asyncio.gather(*[resolve_siren(r) for r in raw_results]))
+
+        # ─── STEP 3 : merge par SIREN ───
         by_siren: dict[str, dict] = {}
-        for r in seed_results:
+        for r in resolved:
             siren = r.get("siren")
             if not siren:
                 continue
             if siren in by_siren:
                 for k, v in r.items():
-                    if v and not by_siren[siren].get(k):
+                    if k == "_sources":
+                        for s in (v or []):
+                            if s not in by_siren[siren].setdefault("_sources", []):
+                                by_siren[siren]["_sources"].append(s)
+                    elif v and not by_siren[siren].get(k) and not k.startswith("_source"):
                         by_siren[siren][k] = v
             else:
-                r["_sources"] = [r.get("_source", "unknown")]
+                if "_sources" not in r:
+                    r["_sources"] = [r.get("_source", "unknown")]
                 by_siren[siren] = r
 
         unique = list(by_siren.values())[: cfg.limit]
         job["found_count"] = len(unique)
 
-        # Step 2 : enrichissement
+        # ─── STEP 4 : enrichissement croisé des champs manquants ───
         enrich_sources = active & {"pages_jaunes", "societe", "trustpilot", "google_maps"}
-        if enrich_sources:
-            await _enrich_results(unique, enrich_sources)
+        prospects_to_enrich = [
+            p for p in unique
+            if not p.get("phone") or not p.get("website")
+        ]
+        if enrich_sources and prospects_to_enrich:
+            await _enrich_results(prospects_to_enrich, enrich_sources)
 
-        # Step 3 : insertion BDD
+        # ─── STEP 5 : insertion / mise à jour BDD ───
         new_count = 0
+        enriched_count = 0
         async with AsyncSessionLocal() as db:
             stage = (
                 await db.execute(select(PipelineStage).order_by(PipelineStage.order).limit(1))
@@ -237,12 +283,16 @@ async def run_scraping_job(job_id: str, sources: list[str], cfg: SourcingJobConf
                 siren = entry.get("siren")
                 if not siren:
                     continue
+
                 existing = (
                     await db.execute(select(Prospect).where(Prospect.siren == siren))
                 ).scalar_one_or_none()
+
                 if existing:
                     updated = False
-                    for k in ("phone", "email", "website", "address", "postal_code", "city", "employee_range", "naf_code", "naf_label"):
+                    for k in ("phone", "email", "website", "address", "postal_code",
+                              "city", "employee_range", "naf_code", "naf_label",
+                              "siret", "legal_form", "region"):
                         if entry.get(k) and not getattr(existing, k, None):
                             setattr(existing, k, entry[k])
                             updated = True
@@ -252,6 +302,7 @@ async def run_scraping_job(job_id: str, sources: list[str], cfg: SourcingJobConf
                             if s not in srcs:
                                 srcs.append(s)
                         existing.sources_used = srcs
+                        enriched_count += 1
                     continue
 
                 prospect = Prospect(
@@ -283,7 +334,7 @@ async def run_scraping_job(job_id: str, sources: list[str], cfg: SourcingJobConf
         job["progress"] = 100
         job["completed_at"] = datetime.now(timezone.utc).isoformat()
         await _persist_job(job_id, "completed", job["found_count"], new_count)
-        logger.info(f"[Sourcing] Job {job_id} : {job['found_count']} trouvés, {new_count} nouveaux, sources={active}")
+        logger.info(f"[Sourcing] Job {job_id} : {job['found_count']} trouvés, {new_count} nouveaux, {enriched_count} enrichis, sources={active}")
 
     except Exception as e:
         logger.exception(f"[Sourcing] Job {job_id} failed: {e}")
@@ -293,7 +344,8 @@ async def run_scraping_job(job_id: str, sources: list[str], cfg: SourcingJobConf
         await _persist_job(job_id, "failed", job.get("found_count", 0), 0, str(e)[:200])
 
 
-# ─────────────────────────────────────────── Scrapers seed
+# ─────────────────────────────────────────── Scrapers seed API (ont le SIREN)
+
 async def _scrape_insee(query: str | None, cfg: SourcingJobConfig) -> list[dict]:
     import httpx
     if not query:
@@ -313,6 +365,7 @@ async def _scrape_insee(query: str | None, cfg: SourcingJobConfig) -> list[dict]
                 cp = siege.get("code_postal") or ""
                 results.append({
                     "_source": "insee",
+                    "_sources": ["insee"],
                     "siren": _trunc(e.get("siren"), 9),
                     "siret": _trunc(siege.get("siret"), 14),
                     "company_name": _trunc(e.get("nom_complet") or e.get("nom_raison_sociale"), 500),
@@ -357,6 +410,7 @@ async def _scrape_pappers(query: str | None, cfg: SourcingJobConfig) -> list[dic
                 cp = siege.get("code_postal") or ""
                 results.append({
                     "_source": "pappers",
+                    "_sources": ["pappers"],
                     "siren": _trunc(e.get("siren"), 9),
                     "siret": _trunc(siege.get("siret"), 14),
                     "company_name": _trunc(e.get("nom_entreprise"), 500),
@@ -414,6 +468,7 @@ async def _scrape_bodacc(query: str | None, cfg: SourcingJobConfig) -> list[dict
                 cp = str(fields.get("cp") or "")
                 raw.append({
                     "_source": "bodacc",
+                    "_sources": ["bodacc"],
                     "siren": _trunc(siren, 9),
                     "company_name": _trunc(name, 500),
                     "city": _trunc(fields.get("ville"), 100),
@@ -430,8 +485,9 @@ async def _scrape_bodacc(query: str | None, cfg: SourcingJobConfig) -> list[dict
                 lookup_q = f"{r['company_name']} {r.get('city') or ''}".strip()
                 lookup = await _scrape_insee(lookup_q, SourcingJobConfig(limit=1))
                 if lookup:
-                    merged = {**lookup[0], **{k: v for k, v in r.items() if v}}
+                    merged = {**lookup[0], **{k: v for k, v in r.items() if v and not k.startswith("_source")}}
                     merged["_source"] = "bodacc+insee"
+                    merged["_sources"] = ["bodacc", "insee"]
                     enriched.append(merged)
             return enriched
     except Exception as e:
@@ -439,20 +495,93 @@ async def _scrape_bodacc(query: str | None, cfg: SourcingJobConfig) -> list[dict
         return []
 
 
-# ─────────────────────────────────────────── Enrichissement
+# ─────────────────────────────────────────── Scrapers seed scraping (sans SIREN → lookup INSEE)
+
+async def _scrape_pages_jaunes_seed(query: str | None, cfg: SourcingJobConfig) -> list[dict]:
+    """Pages Jaunes seed — collecte les entreprises puis lookup INSEE pour SIREN."""
+    if not query:
+        return []
+    try:
+        from services.scrapers.pages_jaunes import PagesJaunesScraper
+        scraper = PagesJaunesScraper()
+        result = await scraper.fetch(query)
+        if not result.success or not result.data:
+            return []
+        results = []
+        for item in result.data.get("results", []):
+            if not item.get("name"):
+                continue
+            results.append({
+                "_source": "pages_jaunes",
+                "_sources": ["pages_jaunes"],
+                "company_name": _trunc(item.get("name"), 500),
+                "phone": _trunc(item.get("phone"), 30),
+                "address": _trunc(item.get("address"), 500),
+                "city": _trunc(cfg.city, 100),
+                "postal_code": _trunc(cfg.city if cfg.city and cfg.city.isdigit() else None, 10),
+            })
+        return results
+    except Exception as e:
+        logger.debug(f"[PJ seed] {e}")
+        return []
+
+
+async def _scrape_google_maps_seed(query: str | None, cfg: SourcingJobConfig) -> list[dict]:
+    """Google Maps seed — collecte entreprises locales, lookup INSEE pour SIREN."""
+    if not query:
+        return []
+    try:
+        from services.scrapers.google_maps import GoogleMapsScraper
+        scraper = GoogleMapsScraper()
+        result = await scraper.fetch(query)
+        if not result.success or not result.data:
+            return []
+        d = result.data
+        # Google Maps retourne un seul résultat ou une liste sous "results"
+        items = d.get("results") or ([d] if d.get("name") or d.get("address") else [])
+        results = []
+        for item in items:
+            name = item.get("name") or item.get("query", "").split(" ")[0]
+            if not name:
+                continue
+            results.append({
+                "_source": "google_maps",
+                "_sources": ["google_maps"],
+                "company_name": _trunc(name, 500),
+                "phone": _trunc(item.get("phone"), 30),
+                "website": _trunc(item.get("website"), 500),
+                "address": _trunc(item.get("address"), 500),
+                "city": _trunc(item.get("city") or cfg.city, 100),
+                "latitude": item.get("latitude"),
+                "longitude": item.get("longitude"),
+            })
+        return results
+    except Exception as e:
+        logger.debug(f"[GMaps seed] {e}")
+        return []
+
+
+async def _scrape_societe_seed(query: str | None, cfg: SourcingJobConfig) -> list[dict]:
+    """Société.com — enrichissement uniquement (nécessite SIREN), retourne vide en seed."""
+    return []
+
+
+# ─────────────────────────────────────────── Enrichissement croisé
+
 async def _enrich_results(prospects: list[dict], sources: set[str]):
+    """Enrichit chaque prospect avec les champs manquants depuis les autres sources."""
     semaphore = asyncio.Semaphore(3)
 
     async def enrich_one(p: dict):
         async with semaphore:
             tasks = []
-            if "pages_jaunes" in sources:
+            if "pages_jaunes" in sources and not p.get("phone"):
                 tasks.append(_enrich_pages_jaunes(p))
-            if "societe" in sources:
+            if "societe" in sources and p.get("siren"):
                 tasks.append(_enrich_societe(p))
             if "trustpilot" in sources:
                 tasks.append(_enrich_trustpilot(p))
-            if "google_maps" in sources:
+            if "google_maps" in sources and not p.get("phone") and not p.get("website"):
                 tasks.append(_enrich_google_maps(p))
             if tasks:
                 await asyncio.gather(*tasks, return_exceptions=True)
@@ -461,27 +590,26 @@ async def _enrich_results(prospects: list[dict], sources: set[str]):
 
 
 async def _enrich_pages_jaunes(p: dict):
-    """Récupère phone depuis le premier résultat Pages Jaunes."""
     try:
         from services.scrapers.pages_jaunes import PagesJaunesScraper
         scraper = PagesJaunesScraper()
         ident = f"{p.get('company_name', '')}|{p.get('city', '')}"
         result = await scraper.fetch(ident)
         if result.success and result.data:
-            results_list = result.data.get("results", [])
-            if results_list:
-                first = results_list[0]
+            items = result.data.get("results", [])
+            if items:
+                first = items[0]
                 if first.get("phone") and not p.get("phone"):
                     p["phone"] = _trunc(first["phone"], 30)
                 if first.get("address") and not p.get("address"):
                     p["address"] = _trunc(first["address"], 500)
-                p.setdefault("_sources", []).append("pages_jaunes")
+                if "pages_jaunes" not in p.get("_sources", []):
+                    p.setdefault("_sources", []).append("pages_jaunes")
     except Exception as e:
         logger.debug(f"[PJ enrich] {p.get('company_name')}: {e}")
 
 
 async def _enrich_societe(p: dict):
-    """Données financières + dirigeants depuis Société.com."""
     try:
         from services.scrapers.societe import SocieteScraper
         siren = p.get("siren")
@@ -498,13 +626,13 @@ async def _enrich_societe(p: dict):
                 extras["directors"] = d["directors_names"]
             if extras:
                 p["_enrichment"] = {**p.get("_enrichment", {}), **extras}
-                p.setdefault("_sources", []).append("societe")
+                if "societe" not in p.get("_sources", []):
+                    p.setdefault("_sources", []).append("societe")
     except Exception as e:
         logger.debug(f"[Societe enrich] {p.get('siren')}: {e}")
 
 
 async def _enrich_trustpilot(p: dict):
-    """Note + nb avis Trustpilot."""
     try:
         from services.scrapers.trustpilot import TrustpilotScraper
         scraper = TrustpilotScraper()
@@ -519,13 +647,13 @@ async def _enrich_trustpilot(p: dict):
                 extras["trustpilot_reviews"] = d["review_count"]
             if extras:
                 p["_enrichment"] = {**p.get("_enrichment", {}), **extras}
-                p.setdefault("_sources", []).append("trustpilot")
+                if "trustpilot" not in p.get("_sources", []):
+                    p.setdefault("_sources", []).append("trustpilot")
     except Exception as e:
         logger.debug(f"[Trustpilot enrich] {p.get('company_name')}: {e}")
 
 
 async def _enrich_google_maps(p: dict):
-    """Coordonnées GPS + rating Google."""
     try:
         from services.scrapers.google_maps import GoogleMapsScraper
         scraper = GoogleMapsScraper()
@@ -539,6 +667,7 @@ async def _enrich_google_maps(p: dict):
                 p["website"] = _trunc(d["website"], 500)
             if d.get("address") and not p.get("address"):
                 p["address"] = _trunc(d["address"], 500)
-            p.setdefault("_sources", []).append("google_maps")
+            if "google_maps" not in p.get("_sources", []):
+                p.setdefault("_sources", []).append("google_maps")
     except Exception as e:
         logger.debug(f"[GMaps enrich] {p.get('company_name')}: {e}")
