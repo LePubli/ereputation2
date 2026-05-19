@@ -1,48 +1,53 @@
 import { NavLink } from 'react-router-dom';
+import {
+  LayoutDashboard, Building2, GitBranch, BarChart2,
+  Search, Table2, Bell, Mail, Download, Target, RefreshCw,
+  Bot, User, Webhook, Puzzle, Settings, ChevronDown,
+} from 'lucide-react';
 
-interface NavItem { to: string; icon: string; label: string; }
+interface NavItem { to: string; icon: React.ReactNode; label: string; badge?: string; }
 interface NavSection { label: string; items: NavItem[]; }
 
-const NAV_SECTIONS: NavSection[] = [
+const NAV: NavSection[] = [
   {
-    label: 'Principal',
+    label: 'Main Menu',
     items: [
-      { to: '/', icon: '⚡', label: 'Dashboard' },
-      { to: '/prospects', icon: '🏢', label: 'Prospects' },
-      { to: '/pipeline', icon: '📊', label: 'Pipeline' },
-      { to: '/analytics', icon: '📈', label: 'Analytics' },
+      { to: '/', icon: <LayoutDashboard size={16} />, label: 'Dashboard' },
+      { to: '/prospects', icon: <Building2 size={16} />, label: 'Prospects' },
+      { to: '/pipeline', icon: <GitBranch size={16} />, label: 'Pipeline' },
+      { to: '/analytics', icon: <BarChart2 size={16} />, label: 'Analytics' },
     ],
   },
   {
     label: 'Sourcing',
     items: [
-      { to: '/sourcing', icon: '🔍', label: 'Scraping' },
-      { to: '/table', icon: '📋', label: 'Spreadsheet' },
-      { to: '/signals', icon: '🔔', label: 'Signaux' },
+      { to: '/sourcing', icon: <Search size={16} />, label: 'Scraping' },
+      { to: '/table', icon: <Table2 size={16} />, label: 'Spreadsheet' },
+      { to: '/signals', icon: <Bell size={16} />, label: 'Signaux' },
     ],
   },
   {
     label: 'Marketing & Sales',
     items: [
-      { to: '/sequencer', icon: '📧', label: 'Séquences Email' },
-      { to: '/inbound', icon: '📥', label: 'Inbound' },
-      { to: '/abm', icon: '🎯', label: 'ABM / TAM' },
-      { to: '/crm-sync', icon: '🔄', label: 'CRM Sync' },
+      { to: '/sequencer', icon: <Mail size={16} />, label: 'Séquences Email' },
+      { to: '/inbound', icon: <Download size={16} />, label: 'Inbound' },
+      { to: '/abm', icon: <Target size={16} />, label: 'ABM / TAM' },
+      { to: '/crm-sync', icon: <RefreshCw size={16} />, label: 'CRM Sync' },
     ],
   },
   {
     label: 'Intelligence',
     items: [
-      { to: '/agent', icon: '🤖', label: 'Agent IA' },
-      { to: '/contacts', icon: '👤', label: 'Contacts' },
+      { to: '/agent', icon: <Bot size={16} />, label: 'Agent IA' },
+      { to: '/contacts', icon: <User size={16} />, label: 'Contacts' },
     ],
   },
   {
     label: 'Système',
     items: [
-      { to: '/webhooks', icon: '🔗', label: 'Webhooks' },
-      { to: '/plugins', icon: '🧩', label: 'Plugins' },
-      { to: '/settings', icon: '⚙️', label: 'Paramètres' },
+      { to: '/webhooks', icon: <Webhook size={16} />, label: 'Webhooks' },
+      { to: '/plugins', icon: <Puzzle size={16} />, label: 'Plugins' },
+      { to: '/settings', icon: <Settings size={16} />, label: 'Paramètres' },
     ],
   },
 ];
@@ -50,15 +55,12 @@ const NAV_SECTIONS: NavSection[] = [
 export default function Sidebar() {
   return (
     <aside style={{
-      width: 'var(--sidebar-width)',
-      minWidth: 'var(--sidebar-width)',
-      height: '100vh',
-      background: 'var(--bg-sidebar)',
+      width: 'var(--sidebar-width)', minWidth: 'var(--sidebar-width)',
+      height: '100vh', background: '#fff',
       borderRight: '1px solid var(--border-color)',
-      display: 'flex',
-      flexDirection: 'column',
+      display: 'flex', flexDirection: 'column',
       overflow: 'hidden',
-      boxShadow: '1px 0 8px rgba(30,42,59,0.04)',
+      boxShadow: '2px 0 8px rgba(0,0,0,.04)',
     }}>
 
       {/* Logo */}
@@ -67,32 +69,31 @@ export default function Sidebar() {
         display: 'flex', alignItems: 'center',
         padding: '0 1.25rem',
         borderBottom: '1px solid var(--border-color)',
-        flexShrink: 0,
+        flexShrink: 0, gap: '.75rem',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
-          <div style={{
-            width: '32px', height: '32px', borderRadius: '8px',
-            background: 'linear-gradient(135deg, #3468f6, #7c4dff)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: '#fff', fontWeight: 800, fontSize: '0.875rem',
-            boxShadow: '0 4px 12px rgba(52,104,246,0.35)',
-          }}>B</div>
-          <div>
-            <div style={{ fontWeight: 700, fontSize: '0.9375rem', color: 'var(--text-primary)', lineHeight: 1.2 }}>B2B Prospector</div>
-            <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', lineHeight: 1 }}>CRM & Sourcing</div>
+        <div style={{
+          width: 36, height: 36, borderRadius: 8,
+          background: 'var(--grad-blue)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: '#fff', fontWeight: 800, fontSize: '1.125rem',
+          boxShadow: '0 4px 10px rgba(13,110,253,.3)',
+        }}>B</div>
+        <div>
+          <div style={{ fontWeight: 700, fontSize: '.9375rem', color: 'var(--text-primary)', lineHeight: 1.2 }}>
+            B2B Prospector
           </div>
+          <div style={{ fontSize: '.6875rem', color: 'var(--text-muted)' }}>CRM & Sourcing</div>
         </div>
       </div>
 
       {/* Nav */}
-      <nav style={{ flex: 1, overflowY: 'auto', padding: '0.75rem 0.75rem' }}>
-        {NAV_SECTIONS.map(section => (
-          <div key={section.label} style={{ marginBottom: '0.25rem' }}>
+      <nav style={{ flex: 1, overflowY: 'auto', padding: '.5rem .625rem' }}>
+        {NAV.map(section => (
+          <div key={section.label} style={{ marginBottom: '.25rem' }}>
             <div style={{
-              fontSize: '0.6875rem', fontWeight: 700,
-              color: 'var(--text-muted)',
-              textTransform: 'uppercase', letterSpacing: '0.07em',
-              padding: '0.625rem 0.875rem 0.375rem',
+              fontSize: '.6875rem', fontWeight: 700,
+              color: 'var(--text-muted)', textTransform: 'uppercase',
+              letterSpacing: '.08em', padding: '.625rem .5rem .3125rem',
             }}>
               {section.label}
             </div>
@@ -102,67 +103,64 @@ export default function Sidebar() {
                 to={item.to}
                 end={item.to === '/'}
                 style={({ isActive }) => ({
-                  display: 'flex', alignItems: 'center', gap: '0.625rem',
-                  padding: '0.5625rem 0.875rem', borderRadius: '8px',
-                  color: isActive ? 'var(--accent-blue)' : 'var(--text-secondary)',
-                  background: isActive ? 'var(--sidebar-active-bg)' : 'transparent',
-                  fontWeight: isActive ? 600 : 500,
-                  fontSize: '0.875rem',
-                  textDecoration: 'none',
-                  transition: 'all 0.15s',
-                  marginBottom: '2px',
-                  borderLeft: isActive ? '3px solid var(--accent-blue)' : '3px solid transparent',
+                  display: 'flex', alignItems: 'center', gap: '.625rem',
+                  padding: '.5625rem .875rem', borderRadius: 6,
+                  color: isActive ? '#0d6efd' : 'var(--text-secondary)',
+                  background: isActive ? 'rgba(13,110,253,.1)' : 'transparent',
+                  fontWeight: isActive ? 600 : 400,
+                  fontSize: '.875rem', textDecoration: 'none',
+                  transition: 'all .15s', marginBottom: 2,
+                  borderLeft: isActive ? '3px solid #0d6efd' : '3px solid transparent',
                 })}
                 onMouseEnter={e => {
                   const el = e.currentTarget as HTMLElement;
-                  if (!el.style.background.includes('0.08')) {
+                  if (!el.style.background.includes('0.1')) {
                     el.style.background = 'var(--bg-hover)';
-                    el.style.color = 'var(--accent-blue)';
+                    el.style.color = '#0d6efd';
                   }
                 }}
                 onMouseLeave={e => {
                   const el = e.currentTarget as HTMLElement;
-                  if (!el.style.background.includes('0.08')) {
+                  if (!el.style.background.includes('0.1')) {
                     el.style.background = 'transparent';
                     el.style.color = 'var(--text-secondary)';
                   }
                 }}
               >
-                <span style={{ fontSize: '0.9375rem', width: '18px', textAlign: 'center', flexShrink: 0 }}>
+                <span style={{ color: 'inherit', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
                   {item.icon}
                 </span>
                 <span style={{ flex: 1 }}>{item.label}</span>
+                {item.badge && (
+                  <span style={{
+                    padding: '1px 7px', borderRadius: 20, fontSize: '.7rem',
+                    fontWeight: 700, background: '#0d6efd', color: '#fff',
+                  }}>{item.badge}</span>
+                )}
               </NavLink>
             ))}
           </div>
         ))}
       </nav>
 
-      {/* Footer */}
+      {/* User footer */}
       <div style={{
-        padding: '0.875rem 1rem',
-        borderTop: '1px solid var(--border-color)',
-        flexShrink: 0,
+        padding: '.875rem 1rem', borderTop: '1px solid var(--border-color)', flexShrink: 0,
+        display: 'flex', alignItems: 'center', gap: '.625rem',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.375rem', borderRadius: '8px' }}>
-          <div style={{
-            width: '32px', height: '32px', borderRadius: '8px',
-            background: 'linear-gradient(135deg, #3468f6, #7c4dff)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: '#fff', fontWeight: 700, fontSize: '0.8125rem', flexShrink: 0,
-          }}>AD</div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              Admin
-            </div>
-            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Administrateur</div>
+        <div style={{
+          width: 34, height: 34, borderRadius: 8,
+          background: 'var(--grad-purple)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: '#fff', fontWeight: 700, fontSize: '.8125rem', flexShrink: 0,
+        }}>AD</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: '.8125rem', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            Admin
           </div>
-          <div style={{
-            width: '8px', height: '8px', borderRadius: '50%',
-            background: 'var(--accent-green)',
-            boxShadow: '0 0 0 2px rgba(27,193,94,0.2)',
-          }} />
+          <div style={{ fontSize: '.7rem', color: 'var(--text-muted)' }}>Administrateur</div>
         </div>
+        <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#198754', flexShrink: 0, boxShadow: '0 0 0 2px rgba(25,135,84,.2)' }} />
       </div>
     </aside>
   );
