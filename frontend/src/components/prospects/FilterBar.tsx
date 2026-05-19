@@ -10,64 +10,99 @@ interface FilterBarProps {
 
 const REGIONS = [
   'Auvergne-Rhône-Alpes', 'Bourgogne-Franche-Comté', 'Bretagne',
-  'Centre-Val de Loire', 'Corse', 'Grand Est', 'Guadeloupe',
-  'Guyane', 'Hauts-de-France', 'Île-de-France', 'La Réunion',
-  'Martinique', 'Mayotte', 'Normandie', 'Nouvelle-Aquitaine',
-  'Occitanie', 'Pays de la Loire', "Provence-Alpes-Côte d'Azur",
+  'Centre-Val de Loire', 'Corse', 'Grand Est', 'Hauts-de-France',
+  'Île-de-France', 'Normandie', 'Nouvelle-Aquitaine', 'Occitanie',
+  'Pays de la Loire', "Provence-Alpes-Côte d'Azur",
 ];
 
 export function FilterBar({ filters, onChange, total }: FilterBarProps) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
 
-  const activeCount = Object.values(filters).filter(
-    (v) => v !== undefined && v !== '' && v !== null
-  ).length;
-
+  const activeCount = Object.values(filters).filter(v => v !== undefined && v !== '' && v !== null).length;
   const clear = () => onChange({});
-
   const set = (key: keyof ProspectFilters, value: any) =>
     onChange({ ...filters, [key]: value || undefined });
 
+  const selectStyle: React.CSSProperties = {
+    width: '100%', padding: '0.4375rem 0.75rem',
+    borderRadius: '8px', border: '1px solid var(--border-color)',
+    background: '#fff', color: 'var(--text-primary)',
+    fontSize: '0.8125rem', outline: 'none',
+    appearance: 'auto' as any,
+  };
+
+  const inputStyle: React.CSSProperties = {
+    width: '100%', padding: '0.4375rem 0.75rem',
+    borderRadius: '8px', border: '1px solid var(--border-color)',
+    background: '#fff', color: 'var(--text-primary)',
+    fontSize: '0.8125rem', outline: 'none', boxSizing: 'border-box' as const,
+  };
+
+  const labelStyle: React.CSSProperties = {
+    display: 'block', fontSize: '0.7rem', fontWeight: 700,
+    color: 'var(--text-muted)', textTransform: 'uppercase',
+    letterSpacing: '0.05em', marginBottom: '0.375rem',
+  };
+
   return (
-    <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+    <div style={{ background: '#fff', border: '1px solid var(--border-color)', borderRadius: '10px', overflow: 'hidden' }}>
+
       {/* Toggle bar */}
       <button
-        onClick={() => setExpanded((v) => !v)}
-        className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-gray-50 transition"
+        onClick={() => setExpanded(v => !v)}
+        style={{
+          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '0.75rem 1rem', background: 'none', border: 'none', cursor: 'pointer',
+          transition: 'background 0.1s',
+        }}
+        onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-tertiary)')}
+        onMouseLeave={e => (e.currentTarget.style.background = 'none')}
       >
-        <div className="flex items-center gap-2">
-          <Filter className="w-4 h-4 text-gray-500" />
-          <span className="text-sm font-medium">Filtres</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <Filter size={14} color="var(--accent-blue)" />
+          <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>Filtres</span>
           {activeCount > 0 && (
-            <span className="px-1.5 py-0.5 bg-blue-600 text-white text-xs rounded-full">{activeCount}</span>
+            <span style={{
+              padding: '1px 7px', borderRadius: '20px', fontSize: '0.7rem', fontWeight: 700,
+              background: 'var(--accent-blue)', color: '#fff',
+            }}>
+              {activeCount}
+            </span>
           )}
           {total !== undefined && (
-            <span className="text-xs text-gray-500">{total} résultat(s)</span>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              {total.toLocaleString('fr-FR')} résultat{total > 1 ? 's' : ''}
+            </span>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
           {activeCount > 0 && (
             <button
-              onClick={(e) => { e.stopPropagation(); clear(); }}
-              className="text-xs text-red-500 hover:text-red-700 flex items-center gap-0.5"
+              onClick={e => { e.stopPropagation(); clear(); }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '3px', fontSize: '0.75rem',
+                color: 'var(--accent-red)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontWeight: 500,
+              }}
             >
-              <X className="w-3.5 h-3.5" /> Réinitialiser
+              <X size={12} /> Réinitialiser
             </button>
           )}
-          <ChevronDown className={`w-4 h-4 text-gray-400 transition ${expanded ? 'rotate-180' : ''}`} />
+          <ChevronDown size={15} color="var(--text-muted)"
+            style={{ transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
         </div>
       </button>
 
       {expanded && (
-        <div className="border-t px-4 py-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-          {/* Score */}
+        <div style={{
+          borderTop: '1px solid var(--border-color)',
+          padding: '1rem',
+          display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '0.875rem',
+        }}>
+
+          {/* Catégorie */}
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Catégorie</label>
-            <select
-              value={filters.propensity_category || ''}
-              onChange={(e) => set('propensity_category', e.target.value)}
-              className="w-full text-sm px-2 py-1.5 border rounded"
-            >
+            <label style={labelStyle}>Catégorie</label>
+            <select value={filters.propensity_category || ''} onChange={e => set('propensity_category', e.target.value)} style={selectStyle}>
               <option value="">Toutes</option>
               <option value="HOT">🔥 HOT</option>
               <option value="WARM">🌡 WARM</option>
@@ -77,65 +112,44 @@ export function FilterBar({ filters, onChange, total }: FilterBarProps) {
 
           {/* Région */}
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Région</label>
-            <select
-              value={filters.region || ''}
-              onChange={(e) => set('region', e.target.value)}
-              className="w-full text-sm px-2 py-1.5 border rounded"
-            >
+            <label style={labelStyle}>Région</label>
+            <select value={filters.region || ''} onChange={e => set('region', e.target.value)} style={selectStyle}>
               <option value="">Toutes</option>
-              {REGIONS.map((r) => <option key={r} value={r}>{r}</option>)}
+              {REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
             </select>
           </div>
 
           {/* Département */}
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Département</label>
+            <label style={labelStyle}>Département</label>
             <input
-              type="text"
-              value={filters.department || ''}
-              onChange={(e) => set('department', e.target.value)}
-              placeholder="Ex: 59"
-              maxLength={3}
-              className="w-full text-sm px-2 py-1.5 border rounded"
+              type="text" value={filters.department || ''}
+              onChange={e => set('department', e.target.value)}
+              placeholder="Ex: 59" maxLength={3} style={inputStyle}
+              onFocus={e => { e.target.style.borderColor = 'var(--accent-blue)'; e.target.style.boxShadow = '0 0 0 3px rgba(52,104,246,0.1)'; }}
+              onBlur={e => { e.target.style.borderColor = 'var(--border-color)'; e.target.style.boxShadow = 'none'; }}
             />
           </div>
 
           {/* Code NAF */}
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Code NAF</label>
+            <label style={labelStyle}>Code NAF</label>
             <input
-              type="text"
-              value={filters.naf_code || ''}
-              onChange={(e) => set('naf_code', e.target.value)}
-              placeholder="Ex: 62.01"
-              className="w-full text-sm px-2 py-1.5 border rounded"
+              type="text" value={filters.naf_code || ''}
+              onChange={e => set('naf_code', e.target.value)}
+              placeholder="Ex: 62.01" style={inputStyle}
+              onFocus={e => { e.target.style.borderColor = 'var(--accent-blue)'; e.target.style.boxShadow = '0 0 0 3px rgba(52,104,246,0.1)'; }}
+              onBlur={e => { e.target.style.borderColor = 'var(--border-color)'; e.target.style.boxShadow = 'none'; }}
             />
-          </div>
-
-          {/* Source */}
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Source</label>
-            <select
-              value={filters.source || ''}
-              onChange={(e) => set('source', e.target.value)}
-              className="w-full text-sm px-2 py-1.5 border rounded"
-            >
-              <option value="">Toutes</option>
-              <option value="siret">SIREN/SIRET</option>
-              <option value="import">Import CSV</option>
-              <option value="manual">Manuel</option>
-              <option value="seed">Démo</option>
-            </select>
           </div>
 
           {/* Site web */}
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Site web</label>
+            <label style={labelStyle}>Site web</label>
             <select
               value={filters.has_website === true ? 'true' : filters.has_website === false ? 'false' : ''}
-              onChange={(e) => set('has_website', e.target.value === '' ? undefined : e.target.value === 'true')}
-              className="w-full text-sm px-2 py-1.5 border rounded"
+              onChange={e => set('has_website', e.target.value === '' ? undefined : e.target.value === 'true')}
+              style={selectStyle}
             >
               <option value="">Tous</option>
               <option value="true">Avec site</option>
@@ -143,42 +157,42 @@ export function FilterBar({ filters, onChange, total }: FilterBarProps) {
             </select>
           </div>
 
+          {/* Téléphone */}
+          <div>
+            <label style={labelStyle}>Téléphone</label>
+            <select
+              value={filters.has_phone === true ? 'true' : filters.has_phone === false ? 'false' : ''}
+              onChange={e => set('has_phone', e.target.value === '' ? undefined : e.target.value === 'true')}
+              style={selectStyle}
+            >
+              <option value="">Tous</option>
+              <option value="true">Avec tél.</option>
+              <option value="false">Sans tél.</option>
+            </select>
+          </div>
+
           {/* Score min */}
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Score min</label>
+            <label style={labelStyle}>Score min</label>
             <input
-              type="number"
-              value={filters.min_score ?? ''}
-              onChange={(e) => set('min_score', e.target.value ? Number(e.target.value) : undefined)}
-              min={0} max={100}
-              placeholder="0-100"
-              className="w-full text-sm px-2 py-1.5 border rounded"
+              type="number" value={filters.min_score ?? ''}
+              onChange={e => set('min_score', e.target.value ? Number(e.target.value) : undefined)}
+              min={0} max={100} placeholder="0-100" style={inputStyle}
+              onFocus={e => { e.target.style.borderColor = 'var(--accent-blue)'; e.target.style.boxShadow = '0 0 0 3px rgba(52,104,246,0.1)'; }}
+              onBlur={e => { e.target.style.borderColor = 'var(--border-color)'; e.target.style.boxShadow = 'none'; }}
             />
           </div>
 
-          {/* Tri */}
+          {/* Tags */}
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Trier par</label>
-            <div className="flex gap-1">
-              <select
-                value={filters.sort_by || 'created_at'}
-                onChange={(e) => set('sort_by', e.target.value)}
-                className="flex-1 text-sm px-2 py-1.5 border rounded"
-              >
-                <option value="created_at">Date</option>
-                <option value="company_name">Nom</option>
-                <option value="propensity_score">Score</option>
-                <option value="estimated_revenue">CA</option>
-                <option value="last_activity_at">Dernière activité</option>
-              </select>
-              <button
-                onClick={() => set('sort_dir', filters.sort_dir === 'asc' ? 'desc' : 'asc')}
-                className="px-2 py-1.5 border rounded text-sm"
-                title={filters.sort_dir === 'asc' ? 'Croissant' : 'Décroissant'}
-              >
-                {filters.sort_dir === 'asc' ? '↑' : '↓'}
-              </button>
-            </div>
+            <label style={labelStyle}>Tags</label>
+            <input
+              type="text" value={filters.tags || ''}
+              onChange={e => set('tags', e.target.value)}
+              placeholder="IT, B2B, ..." style={inputStyle}
+              onFocus={e => { e.target.style.borderColor = 'var(--accent-blue)'; e.target.style.boxShadow = '0 0 0 3px rgba(52,104,246,0.1)'; }}
+              onBlur={e => { e.target.style.borderColor = 'var(--border-color)'; e.target.style.boxShadow = 'none'; }}
+            />
           </div>
         </div>
       )}
