@@ -95,15 +95,15 @@ class PluginGateMiddleware(BaseHTTPMiddleware):
 async def load_plugins(app: "FastAPI") -> dict[str, bool]:
     """
     Charge TOUS les plugins + initialise le registry depuis la DB.
-    Le middleware PluginGateMiddleware bloque les inactifs.
+    Le middleware PluginGateMiddleware est déjà ajouté au niveau de main.py.
     """
     loaded: dict[str, bool] = {}
 
     # 1. Charge l'état depuis la DB
     await _sync_registry_from_db()
 
-    # 2. Ajoute le middleware gate AVANT de charger les routes
-    app.add_middleware(PluginGateMiddleware)
+    # 2. Le middleware a déjà été ajouté dans main.py via le paramètre middleware=
+    # Pas besoin d'appeler app.add_middleware() ici (provoquerait une erreur)
 
     # 3. Charge TOUS les plugins (actifs ET inactifs)
     for folder_name in ALL_PLUGINS:
