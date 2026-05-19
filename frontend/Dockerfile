@@ -23,15 +23,11 @@ RUN npm run build
 
 FROM nginx:1.27-alpine
 
-# Copie des fichiers statiques + config nginx
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
-COPY docker-entrypoint.sh /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh
 
 EXPOSE 3001
 
-ENTRYPOINT ["/docker-entrypoint.sh"]
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD wget -qO- http://localhost:3001/ || exit 1
 
