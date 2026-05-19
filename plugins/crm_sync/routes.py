@@ -208,11 +208,10 @@ async def start_sync(
                 if existing:
                     continue
                 prospect = Prospect(
-                    company_name=name,
-                    city=props.get("city"),
-                    phone=props.get("phone"),
-                    website=props.get("website"),
-                    source="crm_hubspot",
+                    company_name=name[:500],
+                    city=(props.get("city") or "")[:100] or None,
+                    phone=(props.get("phone") or "")[:30] or None,
+                    website=(props.get("website") or "")[:500] or None,
                     sources_used=["crm_hubspot"],
                     stage_id=stage.id if stage else None,
                 )
@@ -363,14 +362,13 @@ async def pull_from_crm(
             skipped += 1
             continue
         prospect = Prospect(
-            company_name=name,
-            city=props.get("city"),
-            phone=props.get("phone"),
-            website=props.get("website"),
-            source="crm_hubspot",
-            sources_used=["crm_hubspot"],
-            stage_id=stage.id if stage else None,
-        )
+                    company_name=name[:500],
+                    city=(props.get("city") or "")[:100] or None,
+                    phone=(props.get("phone") or "")[:30] or None,
+                    website=(props.get("website") or "")[:500] or None,
+                    sources_used=["crm_hubspot"],
+                    stage_id=stage.id if stage else None,
+                )
         db.add(prospect)
         imported += 1
 
