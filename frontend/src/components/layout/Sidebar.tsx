@@ -48,6 +48,7 @@ const NAV: NavSection[] = [
       { to: '/webhooks', icon: <Webhook size={16} />, label: 'Webhooks' },
       { to: '/plugins', icon: <Puzzle size={16} />, label: 'Plugins' },
       { to: '/settings', icon: <Settings size={16} />, label: 'Paramètres' },
+      { to: '/themes', icon: <Palette size={16} />, label: 'Thèmes' },
     ],
   },
 ];
