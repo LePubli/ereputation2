@@ -1,9 +1,8 @@
 import { useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Search, CheckCircle2, XCircle, Loader2, Zap, Globe, Mail, Phone, Linkedin, ExternalLink, Settings } from 'lucide-react';
+import { Search, CheckCircle2, XCircle, Loader2, Zap, Globe, Mail, Phone, Linkedin, Settings } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiClient } from '../api/client';
-import { PageHeader } from '../components/ui/PageHeader';
 
 interface ContactResult {
   contact: {
@@ -33,345 +32,369 @@ export default function ContactIntelPage() {
 
   const { data: providers } = useQuery<{ providers: Provider[]; active_count: number }>({
     queryKey: ['contact-providers'],
-    queryFn: async () => { const { data } = await apiClient.get('/contacts/providers'); return data; },
+    queryFn: async () => { try { const data = await apiClient.get('/contacts/providers'); return data; } catch { return { providers: [], active_count: 0 }; } },
   });
 
   const findMutation = useMutation({
     mutationFn: async (body: typeof form) => {
-      const { data } = await apiClient.post('/contacts/find', body);
+      const data = await apiClient.post('/contacts/find', body);
       return data as ContactResult;
     },
     onSuccess: (data) => {
       setResult(data);
       if (data.contact.email_verified) toast.success('Email SMTP vérifié ✓');
       else if (data.contact.email) toast.success('Email trouvé (non vérifié)');
-      else toast.info('Aucun email trouvé — essayez d\'activer un provider payant');
+      else toast.info("Aucun email trouvé");
     },
   });
 
   const domainMutation = useMutation({
-    mutationFn: async (domain: string) => {
-      const { data } = await apiClient.post('/contacts/domain-search', { domain });
-      return data;
-    },
+    mutationFn: async (domain: string) => apiClient.post('/contacts/domain-search', { domain }),
   });
 
   const verifyMutation = useMutation({
-    mutationFn: async (email: string) => {
-      const { data } = await apiClient.post('/contacts/verify-email', { email });
-      return data;
-    },
-    onSuccess: (data) => {
+    mutationFn: async (email: string) => apiClient.post('/contacts/verify-email', { email }),
+    onSuccess: (data: any) => {
       if (data.valid) toast.success(`✓ ${data.email} — Email valide`);
       else toast.error(`✗ ${data.email} — Email invalide`);
     },
   });
 
-  return (
-    <>
-      <PageHeader
-        title="Contact Intelligence"
-        description="Trouvez emails et téléphones — Apollo-style, gratuit par défaut"
-      />
-      <div className="p-6">
-        {/* Tabs */}
-        <div className="flex border-b mb-6">
-          {[
-            { id: 'search', label: '🔍 Recherche contact' },
-            { id: 'domain', label: '🌐 Domain search' },
-            { id: 'verify', label: '✉️ Vérifier email' },
-            { id: 'providers', label: `⚡ Providers (${providers?.active_count ?? '...'}  actifs)` },
-          ].map((t) => (
-            <button key={t.id} onClick={() => setTab(t.id as typeof tab)}
-              className={`px-5 py-3 text-sm font-medium border-b-2 transition ${
-                tab === t.id ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-600 hover:text-gray-900'
-              }`}>
-              {t.label}
-            </button>
-          ))}
-        </div>
+  const TABS = [
+    { id: 'search', label: 'Recherche contact', icon: '🔍' },
+    { id: 'domain', label: 'Domain search', icon: '🌐' },
+    { id: 'verify', label: 'Vérifier email', icon: '✉️' },
+    { id: 'providers', label: `Providers (${providers?.active_count ?? '…'} actifs)`, icon: '⚡' },
+  ];
 
-        {/* Tab: Recherche contact */}
-        {tab === 'search' && (
-          <div className="grid grid-cols-2 gap-6">
-            {/* Formulaire */}
-            <div className="bg-white rounded-xl border p-5 space-y-4">
-              <h3 className="font-semibold">Trouver un contact</h3>
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Prénom">
-                  <input value={form.first_name} onChange={e => setForm(f => ({ ...f, first_name: e.target.value }))}
-                    placeholder="Jean" className="input" />
-                </Field>
-                <Field label="Nom">
-                  <input value={form.last_name} onChange={e => setForm(f => ({ ...f, last_name: e.target.value }))}
-                    placeholder="Dupont" className="input" />
-                </Field>
-              </div>
-              <Field label="Entreprise *">
-                <input value={form.company_name} onChange={e => setForm(f => ({ ...f, company_name: e.target.value }))}
-                  placeholder="Acme SAS" className="input" required />
-              </Field>
-              <Field label="Site web">
-                <input value={form.website} onChange={e => setForm(f => ({ ...f, website: e.target.value }))}
-                  placeholder="https://acme.fr" className="input" />
-              </Field>
-              <Field label="Poste recherché">
-                <select value={form.job_title} onChange={e => setForm(f => ({ ...f, job_title: e.target.value }))}
-                  className="input">
-                  <option>Dirigeant</option>
-                  <option>Gérant</option>
-                  <option>CEO</option>
-                  <option>DG</option>
-                  <option>Responsable marketing</option>
-                  <option>Directeur commercial</option>
-                  <option>DSI</option>
-                  <option>DAF</option>
-                </select>
-              </Field>
-              <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <input type="checkbox" checked={form.stop_on_verified}
-                  onChange={e => setForm(f => ({ ...f, stop_on_verified: e.target.checked }))}
-                  className="accent-blue-600" />
-                Arrêter dès le premier email SMTP vérifié
-              </label>
-              <button
-                onClick={() => findMutation.mutate(form)}
-                disabled={!form.company_name || findMutation.isPending}
-                className="w-full flex items-center justify-center gap-2 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-              >
-                {findMutation.isPending
-                  ? <><Loader2 className="w-4 h-4 animate-spin" /> Recherche en cours…</>
-                  : <><Search className="w-4 h-4" /> Trouver le contact</>
-                }
-              </button>
-              {providers && (
-                <p className="text-xs text-center text-gray-400">
-                  {providers.active_count} provider(s) actif(s) ·
-                  Sources : {providers.providers.filter(p => p.active).map(p => p.name.split(' ')[0]).join(', ')}
-                </p>
-              )}
+  return (
+    <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', height: '100%', boxSizing: 'border-box', overflowY: 'auto' }}>
+
+      {/* Header */}
+      <div>
+        <h1 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 0.25rem' }}>
+          Contact Intelligence
+        </h1>
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.8125rem', margin: 0 }}>
+          Trouvez emails et téléphones — Apollo-style, gratuit par défaut
+        </p>
+      </div>
+
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: '0.25rem', background: 'var(--bg-tertiary)', padding: '4px', borderRadius: '10px', width: 'fit-content' }}>
+        {TABS.map(t => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id as typeof tab)}
+            style={{
+              padding: '0.4375rem 1rem', borderRadius: '7px', fontSize: '0.8125rem',
+              fontWeight: tab === t.id ? 600 : 500,
+              background: tab === t.id ? '#fff' : 'transparent',
+              border: 'none', color: tab === t.id ? 'var(--accent-blue)' : 'var(--text-secondary)',
+              cursor: 'pointer', transition: 'all 0.15s',
+              boxShadow: tab === t.id ? '0 1px 4px rgba(30,42,59,0.1)' : 'none',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {t.icon} {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Search tab */}
+      {tab === 'search' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '380px 1fr', gap: '1.25rem', flex: 1 }}>
+
+          {/* Form card */}
+          <div style={{ background: '#fff', border: '1px solid var(--border-color)', borderRadius: '12px', boxShadow: 'var(--shadow-card)', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', height: 'fit-content' }}>
+            <h3 style={{ margin: 0, fontSize: '0.9375rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+              🔍 Trouver un contact
+            </h3>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+              <FormField label="Prénom">
+                <CRMInput value={form.first_name} onChange={v => setForm(f => ({ ...f, first_name: v }))} placeholder="Jean" />
+              </FormField>
+              <FormField label="Nom">
+                <CRMInput value={form.last_name} onChange={v => setForm(f => ({ ...f, last_name: v }))} placeholder="Dupont" />
+              </FormField>
             </div>
 
-            {/* Résultat */}
-            <div className="bg-white rounded-xl border p-5">
-              {!result && !findMutation.isPending && (
-                <div className="flex flex-col items-center justify-center h-full text-center py-12">
-                  <Search className="w-12 h-12 text-gray-200 mb-3" />
-                  <p className="text-gray-400 text-sm">Le résultat apparaîtra ici</p>
-                </div>
-              )}
-              {findMutation.isPending && (
-                <div className="flex flex-col items-center justify-center h-full py-12">
-                  <Loader2 className="w-10 h-10 animate-spin text-blue-600 mb-3" />
-                  <p className="text-sm text-gray-500">Scan waterfall en cours…</p>
-                  <p className="text-xs text-gray-400 mt-1">Site web → Pattern → SMTP → APIs</p>
-                </div>
-              )}
-              {result && (
-                <div className="space-y-4">
-                  {/* Email principal */}
-                  <div className={`p-4 rounded-lg border-2 ${result.contact.email_verified ? 'border-green-300 bg-green-50' : result.contact.email ? 'border-orange-200 bg-orange-50' : 'border-gray-200 bg-gray-50'}`}>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-semibold text-gray-500 uppercase">Email principal</span>
-                      {result.contact.email_verified
-                        ? <span className="flex items-center gap-1 text-xs text-green-700 font-medium"><CheckCircle2 className="w-3.5 h-3.5" /> SMTP vérifié</span>
-                        : result.contact.email
-                        ? <span className="text-xs text-orange-600">Non vérifié ({Math.round(result.contact.email_confidence * 100)}%)</span>
-                        : <span className="text-xs text-gray-400">Non trouvé</span>
-                      }
-                    </div>
-                    {result.contact.email
-                      ? <div className="font-mono text-sm font-medium">{result.contact.email}</div>
-                      : <div className="text-gray-400 text-sm">—</div>
+            <FormField label="Entreprise *">
+              <CRMInput value={form.company_name} onChange={v => setForm(f => ({ ...f, company_name: v }))} placeholder="Acme SAS" />
+            </FormField>
+
+            <FormField label="Site web">
+              <CRMInput value={form.website} onChange={v => setForm(f => ({ ...f, website: v }))} placeholder="https://acme.fr" />
+            </FormField>
+
+            <FormField label="Poste recherché">
+              <select
+                value={form.job_title}
+                onChange={e => setForm(f => ({ ...f, job_title: e.target.value }))}
+                style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: '#fff', color: 'var(--text-primary)', fontSize: '0.875rem', outline: 'none' }}
+              >
+                {['Dirigeant', 'Gérant', 'CEO', 'DG', 'Responsable marketing', 'Directeur commercial', 'DSI', 'DAF'].map(o => (
+                  <option key={o}>{o}</option>
+                ))}
+              </select>
+            </FormField>
+
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', cursor: 'pointer', padding: '0.625rem', background: 'var(--bg-tertiary)', borderRadius: '8px' }}>
+              <input type="checkbox" checked={form.stop_on_verified}
+                onChange={e => setForm(f => ({ ...f, stop_on_verified: e.target.checked }))}
+                style={{ accentColor: 'var(--accent-blue)', width: '14px', height: '14px' }} />
+              <span style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
+                Arrêter dès le premier email SMTP vérifié
+              </span>
+            </label>
+
+            <button
+              onClick={() => findMutation.mutate(form)}
+              disabled={!form.company_name || findMutation.isPending}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
+                padding: '0.6875rem', borderRadius: '10px',
+                background: 'var(--accent-blue)', border: 'none', color: '#fff',
+                fontWeight: 600, fontSize: '0.9375rem', cursor: 'pointer',
+                opacity: (!form.company_name || findMutation.isPending) ? 0.6 : 1,
+                boxShadow: '0 4px 12px rgba(52,104,246,0.3)',
+                transition: 'all 0.2s',
+              }}
+            >
+              {findMutation.isPending
+                ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Recherche en cours…</>
+                : <><Search size={16} /> Trouver le contact</>
+              }
+            </button>
+
+            {providers && (
+              <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+                {providers.active_count} provider(s) · {providers.providers.filter(p => p.active).map(p => p.name.split(' ')[0]).join(', ')}
+              </p>
+            )}
+          </div>
+
+          {/* Result card */}
+          <div style={{ background: '#fff', border: '1px solid var(--border-color)', borderRadius: '12px', boxShadow: 'var(--shadow-card)', padding: '1.5rem' }}>
+            {!result && !findMutation.isPending && (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: '300px', color: 'var(--text-muted)' }}>
+                <div style={{ width: '64px', height: '64px', borderRadius: '16px', background: 'var(--bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.75rem', marginBottom: '1rem' }}>🔍</div>
+                <p style={{ margin: 0, fontWeight: 600, color: 'var(--text-secondary)' }}>Lancez une recherche</p>
+                <p style={{ margin: '0.25rem 0 0', fontSize: '0.8125rem' }}>Le résultat apparaîtra ici</p>
+              </div>
+            )}
+
+            {findMutation.isPending && (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: '300px' }}>
+                <div style={{ width: '56px', height: '56px', borderRadius: '50%', border: '3px solid var(--border-color)', borderTopColor: 'var(--accent-blue)', animation: 'spin 0.8s linear infinite', marginBottom: '1.25rem' }} />
+                <p style={{ margin: 0, fontWeight: 600, color: 'var(--text-primary)' }}>Scan waterfall en cours…</p>
+                <p style={{ margin: '0.25rem 0 0', fontSize: '0.8125rem', color: 'var(--text-muted)' }}>Site web → Pattern → SMTP → APIs</p>
+              </div>
+            )}
+
+            {result && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                <h3 style={{ margin: 0, fontSize: '0.9375rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                  Résultats pour {result.contact.first_name || ''} {result.contact.last_name || form.company_name}
+                </h3>
+
+                {/* Email principal */}
+                <div style={{
+                  padding: '1.25rem', borderRadius: '10px',
+                  background: result.contact.email_verified ? 'rgba(27,193,94,0.06)' : result.contact.email ? 'rgba(245,166,35,0.06)' : 'var(--bg-tertiary)',
+                  border: `2px solid ${result.contact.email_verified ? 'rgba(27,193,94,0.3)' : result.contact.email ? 'rgba(245,166,35,0.3)' : 'var(--border-color)'}`,
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                      Email principal
+                    </span>
+                    {result.contact.email_verified
+                      ? <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', color: 'var(--accent-green)', fontWeight: 600 }}>
+                          <CheckCircle2 size={13} /> SMTP vérifié
+                        </span>
+                      : result.contact.email
+                      ? <span style={{ fontSize: '0.75rem', color: 'var(--accent-orange)', fontWeight: 500 }}>
+                          Non vérifié ({Math.round(result.contact.email_confidence * 100)}%)
+                        </span>
+                      : <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Non trouvé</span>
                     }
                   </div>
-
-                  {/* Autres données */}
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <ContactField icon={<Phone className="w-3.5 h-3.5" />} label="Téléphone" value={result.contact.phone || result.company_data.all_phones[0]} />
-                    <ContactField icon={<Phone className="w-3.5 h-3.5" />} label="Mobile" value={result.contact.mobile} />
-                    <ContactField icon={<Linkedin className="w-3.5 h-3.5" />} label="LinkedIn" value={result.contact.linkedin_url} isLink />
-                    <ContactField icon={<Globe className="w-3.5 h-3.5" />} label="Domaine" value={result.domain} />
-                  </div>
-
-                  {/* Tous les emails trouvés */}
-                  {result.company_data.all_emails.length > 0 && (
-                    <div>
-                      <p className="text-xs font-medium text-gray-500 mb-2">Tous les emails trouvés ({result.company_data.all_emails.length})</p>
-                      <div className="space-y-1">
-                        {result.company_data.all_emails.slice(0, 8).map(e => (
-                          <div key={e} className="flex items-center justify-between py-1 px-2 bg-gray-50 rounded text-xs font-mono">
-                            <span>{e}</span>
-                            <button onClick={() => { navigator.clipboard.writeText(e); toast.success('Copié'); }}
-                              className="text-gray-400 hover:text-blue-600">⎘</button>
-                          </div>
-                        ))}
+                  {result.contact.email
+                    ? <div style={{ fontFamily: 'monospace', fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', letterSpacing: '0.01em' }}>
+                        {result.contact.email}
                       </div>
+                    : <div style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>Aucun email trouvé</div>
+                  }
+                  {result.contact.email && (
+                    <div style={{ marginTop: '0.75rem' }}>
+                      <div style={{ height: '4px', borderRadius: '2px', background: 'var(--border-color)', overflow: 'hidden' }}>
+                        <div style={{
+                          height: '100%', borderRadius: '2px',
+                          width: `${result.contact.email_confidence * 100}%`,
+                          background: result.contact.email_verified ? 'var(--accent-green)' : 'var(--accent-orange)',
+                          transition: 'width 0.5s ease',
+                        }} />
+                      </div>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                        Confiance : {Math.round(result.contact.email_confidence * 100)}%
+                      </span>
                     </div>
                   )}
+                </div>
 
-                  {/* Sources */}
+                {/* Autres champs */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                  <ResultField icon={<Phone size={13} />} label="Téléphone" value={result.contact.phone || result.company_data.all_phones[0]} />
+                  <ResultField icon={<Phone size={13} />} label="Mobile" value={result.contact.mobile} />
+                  <ResultField icon={<Linkedin size={13} />} label="LinkedIn" value={result.contact.linkedin_url} isLink />
+                  <ResultField icon={<Globe size={13} />} label="Domaine" value={result.domain} />
+                </div>
+
+                {/* Autres emails */}
+                {result.company_data.all_emails.length > 0 && (
                   <div>
-                    <p className="text-xs font-medium text-gray-500 mb-1">Sources utilisées</p>
-                    <div className="flex flex-wrap gap-1">
-                      {result.meta.sources_used.map(s => (
-                        <span key={s} className="text-xs px-2 py-0.5 bg-blue-50 text-blue-700 rounded">{s}</span>
+                    <p style={{ margin: '0 0 0.625rem', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                      Tous les emails ({result.company_data.all_emails.length})
+                    </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+                      {result.company_data.all_emails.slice(0, 5).map((email, i) => (
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.75rem', background: 'var(--bg-tertiary)', borderRadius: '6px', fontSize: '0.8125rem' }}>
+                          <Mail size={12} color="var(--text-muted)" />
+                          <span style={{ fontFamily: 'monospace', color: 'var(--text-primary)' }}>{email}</span>
+                        </div>
                       ))}
-                      {result.meta.sources_used.length === 0 && <span className="text-xs text-gray-400">Aucune source n'a trouvé de résultat</span>}
                     </div>
                   </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+                )}
 
-        {/* Tab: Domain search */}
-        {tab === 'domain' && (
-          <div className="max-w-2xl space-y-4">
-            <div className="bg-white rounded-xl border p-5">
-              <h3 className="font-semibold mb-3">Domain Search</h3>
-              <p className="text-sm text-gray-500 mb-4">Trouve tous les emails connus pour un domaine.</p>
-              <div className="flex gap-2">
-                <input value={domainQuery} onChange={e => setDomainQuery(e.target.value)}
-                  placeholder="acme.fr" className="flex-1 px-3 py-2 border rounded text-sm" />
-                <button onClick={() => domainMutation.mutate(domainQuery)} disabled={!domainQuery || domainMutation.isPending}
-                  className="px-4 py-2 bg-blue-600 text-white rounded text-sm disabled:opacity-50">
-                  {domainMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Rechercher'}
-                </button>
-              </div>
-            </div>
-            {domainMutation.data && (
-              <div className="bg-white rounded-xl border p-5">
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="font-medium">{domainMutation.data.emails_found} email(s) trouvé(s)</h4>
-                  <div className="flex gap-1">
-                    {domainMutation.data.sources_used.map((s: string) => (
-                      <span key={s} className="text-xs px-2 py-0.5 bg-blue-50 text-blue-700 rounded">{s}</span>
-                    ))}
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  {domainMutation.data.results.map((r: any, i: number) => (
-                    <div key={i} className="flex items-center justify-between py-1.5 px-3 bg-gray-50 rounded text-sm">
-                      <div>
-                        <span className="font-mono">{r.email}</span>
-                        {r.first_name && <span className="text-gray-500 ml-2 text-xs">{r.first_name} {r.last_name}</span>}
-                        {r.job_title && <span className="text-gray-400 ml-1 text-xs">· {r.job_title}</span>}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        {r.verified ? <CheckCircle2 className="w-3.5 h-3.5 text-green-500" /> : <XCircle className="w-3.5 h-3.5 text-gray-300" />}
-                        <button onClick={() => { navigator.clipboard.writeText(r.email); toast.success('Copié'); }}
-                          className="text-gray-400 hover:text-blue-600 ml-1">⎘</button>
-                      </div>
-                    </div>
+                {/* Sources */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Sources :</span>
+                  {result.meta.sources_used.map(s => (
+                    <span key={s} style={{ padding: '2px 10px', borderRadius: '20px', fontSize: '0.7rem', fontWeight: 600, background: 'rgba(52,104,246,0.1)', color: 'var(--accent-blue)', border: '1px solid rgba(52,104,246,0.2)' }}>
+                      {s}
+                    </span>
                   ))}
                 </div>
               </div>
             )}
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Tab: Verify */}
-        {tab === 'verify' && (
-          <div className="max-w-xl">
-            <div className="bg-white rounded-xl border p-5">
-              <h3 className="font-semibold mb-3">Vérification email SMTP</h3>
-              <p className="text-sm text-gray-500 mb-4">Vérifie si un email existe via handshake SMTP (sans envoyer d'email).</p>
-              <div className="flex gap-2">
-                <input value={verifyEmail} onChange={e => setVerifyEmail(e.target.value)}
-                  placeholder="jean.dupont@acme.fr" type="email" className="flex-1 px-3 py-2 border rounded text-sm" />
-                <button onClick={() => verifyMutation.mutate(verifyEmail)} disabled={!verifyEmail || verifyMutation.isPending}
-                  className="px-4 py-2 bg-blue-600 text-white rounded text-sm disabled:opacity-50">
-                  {verifyMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Vérifier'}
-                </button>
-              </div>
-              {verifyMutation.data && (
-                <div className={`mt-4 p-3 rounded-lg flex items-center gap-3 ${verifyMutation.data.valid ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
-                  {verifyMutation.data.valid
-                    ? <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" />
-                    : <XCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
-                  }
-                  <div>
-                    <p className={`font-medium text-sm ${verifyMutation.data.valid ? 'text-green-800' : 'text-red-800'}`}>
-                      {verifyMutation.data.valid ? '✓ Email valide' : '✗ Email invalide'}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-0.5">{verifyMutation.data.email} · méthode: {verifyMutation.data.method}</p>
-                  </div>
-                </div>
-              )}
-            </div>
+      {/* Domain search tab */}
+      {tab === 'domain' && (
+        <div style={{ background: '#fff', border: '1px solid var(--border-color)', borderRadius: '12px', boxShadow: 'var(--shadow-card)', padding: '1.5rem', maxWidth: '560px' }}>
+          <h3 style={{ margin: '0 0 1rem', fontSize: '0.9375rem', fontWeight: 700, color: 'var(--text-primary)' }}>🌐 Recherche par domaine</h3>
+          <div style={{ display: 'flex', gap: '0.625rem' }}>
+            <CRMInput value={domainQuery} onChange={setDomainQuery} placeholder="acme.fr" />
+            <button
+              onClick={() => domainMutation.mutate(domainQuery)}
+              disabled={!domainQuery || domainMutation.isPending}
+              style={{ padding: '0.5rem 1.25rem', borderRadius: '8px', background: 'var(--accent-blue)', border: 'none', color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: '0.875rem', whiteSpace: 'nowrap', opacity: (!domainQuery || domainMutation.isPending) ? 0.6 : 1 }}
+            >
+              {domainMutation.isPending ? 'Recherche…' : 'Rechercher'}
+            </button>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Tab: Providers */}
-        {tab === 'providers' && (
-          <div className="space-y-3 max-w-2xl">
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
-              <strong>Pour activer un provider payant</strong> : ajouter la clé API dans Coolify → Variables d'environnement, puis redéployer.
-            </div>
-            {providers?.providers.map((p) => (
-              <div key={p.name} className={`bg-white rounded-lg border p-4 ${p.active ? '' : 'opacity-60'}`}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-2.5 h-2.5 rounded-full ${p.active ? 'bg-green-500' : 'bg-gray-300'}`} />
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-sm">{p.name}</span>
-                        <span className={`text-xs px-2 py-0.5 rounded ${p.type === 'free' ? 'bg-green-100 text-green-700' : 'bg-purple-100 text-purple-700'}`}>
-                          {p.type === 'free' ? '🆓 Gratuit' : '💳 Payant'}
-                        </span>
-                        {p.active ? <span className="text-xs text-green-600 font-medium">● Actif</span>
-                          : <span className="text-xs text-gray-400">○ Inactif</span>}
-                      </div>
-                      <p className="text-xs text-gray-500 mt-0.5">{p.description}</p>
-                    </div>
-                  </div>
-                  {p.url && (
-                    <a href={p.url} target="_blank" rel="noreferrer" className="text-blue-500 hover:text-blue-700">
-                      <ExternalLink className="w-4 h-4" />
-                    </a>
-                  )}
-                </div>
-                {p.config_key && !p.active && (
-                  <div className="mt-3 flex items-center gap-2 bg-gray-50 px-3 py-2 rounded text-xs">
-                    <Settings className="w-3.5 h-3.5 text-gray-400" />
-                    <span>Variable à ajouter : <code className="font-mono bg-gray-200 px-1 rounded">{p.config_key}</code></span>
-                    {p.pricing && <span className="text-gray-400 ml-auto">{p.pricing}</span>}
-                  </div>
-                )}
-              </div>
-            ))}
+      {/* Verify tab */}
+      {tab === 'verify' && (
+        <div style={{ background: '#fff', border: '1px solid var(--border-color)', borderRadius: '12px', boxShadow: 'var(--shadow-card)', padding: '1.5rem', maxWidth: '560px' }}>
+          <h3 style={{ margin: '0 0 1rem', fontSize: '0.9375rem', fontWeight: 700, color: 'var(--text-primary)' }}>✉️ Vérifier un email</h3>
+          <div style={{ display: 'flex', gap: '0.625rem' }}>
+            <CRMInput value={verifyEmail} onChange={setVerifyEmail} placeholder="contact@acme.fr" />
+            <button
+              onClick={() => verifyMutation.mutate(verifyEmail)}
+              disabled={!verifyEmail || verifyMutation.isPending}
+              style={{ padding: '0.5rem 1.25rem', borderRadius: '8px', background: 'var(--accent-blue)', border: 'none', color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: '0.875rem', whiteSpace: 'nowrap', opacity: (!verifyEmail || verifyMutation.isPending) ? 0.6 : 1 }}
+            >
+              {verifyMutation.isPending ? 'Vérification…' : 'Vérifier'}
+            </button>
           </div>
-        )}
-      </div>
-    </>
+        </div>
+      )}
+
+      {/* Providers tab */}
+      {tab === 'providers' && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
+          {providers?.providers.map(p => (
+            <div key={p.name} style={{
+              background: '#fff', border: `1px solid ${p.active ? 'rgba(27,193,94,0.3)' : 'var(--border-color)'}`,
+              borderRadius: '12px', boxShadow: 'var(--shadow-card)', padding: '1.25rem',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '0.9375rem', color: 'var(--text-primary)' }}>{p.name}</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>{p.type}</div>
+                </div>
+                <span style={{
+                  padding: '3px 10px', borderRadius: '20px', fontSize: '0.7rem', fontWeight: 700,
+                  background: p.active ? 'rgba(27,193,94,0.1)' : 'var(--bg-tertiary)',
+                  color: p.active ? 'var(--accent-green)' : 'var(--text-muted)',
+                  border: `1px solid ${p.active ? 'rgba(27,193,94,0.2)' : 'var(--border-color)'}`,
+                }}>
+                  {p.active ? '● Actif' : '○ Inactif'}
+                </span>
+              </div>
+              <p style={{ margin: '0 0 0.75rem', fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>{p.description}</p>
+              {p.pricing && <span style={{ fontSize: '0.75rem', color: 'var(--accent-blue)', fontWeight: 500 }}>{p.pricing}</span>}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+// ── Sub-components
+function FormField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
+      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.375rem' }}>
+        {label}
+      </label>
       {children}
     </div>
   );
 }
 
-function ContactField({ icon, label, value, isLink }: { icon: React.ReactNode; label: string; value: string | null | undefined; isLink?: boolean }) {
+function CRMInput({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
+  return (
+    <input
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      placeholder={placeholder}
+      style={{
+        width: '100%', padding: '0.5rem 0.75rem',
+        borderRadius: '8px', border: '1px solid var(--border-color)',
+        background: '#fff', color: 'var(--text-primary)', fontSize: '0.875rem',
+        outline: 'none', boxSizing: 'border-box' as const,
+        transition: 'border-color 0.15s, box-shadow 0.15s',
+      }}
+      onFocus={e => { e.target.style.borderColor = 'var(--accent-blue)'; e.target.style.boxShadow = '0 0 0 3px rgba(52,104,246,0.12)'; }}
+      onBlur={e => { e.target.style.borderColor = 'var(--border-color)'; e.target.style.boxShadow = 'none'; }}
+    />
+  );
+}
+
+function ResultField({ icon, label, value, isLink }: { icon: React.ReactNode; label: string; value?: string | null; isLink?: boolean }) {
   if (!value) return (
-    <div className="flex items-center gap-1.5 px-2 py-1.5 bg-gray-50 rounded">
-      <span className="text-gray-300">{icon}</span>
-      <span className="text-gray-400 text-xs">{label} : —</span>
+    <div style={{ padding: '0.75rem', background: 'var(--bg-tertiary)', borderRadius: '8px', opacity: 0.5 }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '0.25rem', display: 'flex', alignItems: 'center', gap: '4px' }}>{icon} {label}</div>
+      <div style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>—</div>
     </div>
   );
   return (
-    <div className="flex items-center gap-1.5 px-2 py-1.5 bg-gray-50 rounded">
-      <span className="text-gray-500">{icon}</span>
+    <div style={{ padding: '0.75rem', background: 'var(--bg-tertiary)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '0.25rem', display: 'flex', alignItems: 'center', gap: '4px' }}>{icon} {label}</div>
       {isLink
-        ? <a href={value.startsWith('http') ? value : `https://${value}`} target="_blank" rel="noreferrer"
-            className="text-xs text-blue-600 hover:underline truncate">{label} ↗</a>
-        : <span className="text-xs text-gray-800 truncate">{value}</span>
+        ? <a href={value} target="_blank" rel="noreferrer" style={{ fontSize: '0.8125rem', color: 'var(--accent-blue)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>{value}</a>
+        : <div style={{ fontSize: '0.8125rem', color: 'var(--text-primary)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</div>
       }
     </div>
   );
