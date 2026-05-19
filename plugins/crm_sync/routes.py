@@ -428,23 +428,32 @@ async def _list_hubspot_contacts(api_key: str, limit: int = 50) -> list[dict]:
 
 
 async def _push_to_hubspot(prospect, config) -> bool:
-    mapping = config.field_mapping or {}
-    properties = {}
+    # Mapping par défaut si vide
+    DEFAULT_MAPPING = {
+        "company_name": "name",
+        "city": "city",
+        "phone": "phone",
+        "website": "website",
+        "siren": "siren_number",
+        "region": "state",
+        "naf_code": "industry",
+    }
+    mapping = config.field_mapping or DEFAULT_MAPPING
     field_values = {
         "company_name": prospect.company_name,
-        "city": prospect.city,
-        "phone": prospect.phone,
-        "website": prospect.website,
-        "siren": prospect.siren,
+        "city": prospect.city or "",
+        "phone": prospect.phone or "",
+        "website": prospect.website or "",
+        "siren": prospect.siren or "",
         "propensity_score": str(getattr(prospect, "propensity_score", "") or ""),
-        "naf_code": prospect.naf_code,
-        "region": prospect.region,
+        "naf_code": prospect.naf_code or "",
+        "region": prospect.region or "",
     }
+    properties = {}
     for our_field, hs_field in mapping.items():
         val = field_values.get(our_field)
         if val:
             properties[hs_field] = val
-
     if "name" not in properties:
         properties["name"] = prospect.company_name
 
