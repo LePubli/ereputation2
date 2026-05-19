@@ -1,4 +1,4 @@
 ```
-# Build artifacts
-frontend/dist/
+__pycache__/
+*.pyc
 ```

@@ -10,7 +10,7 @@ from loguru import logger
 
 from core.config import settings
 from core.database import close_db, init_db
-from core.plugin_loader import load_plugins
+from core.plugin_loader import PluginGateMiddleware, load_plugins
 
 
 @asynccontextmanager
@@ -32,6 +32,14 @@ async def lifespan(app: FastAPI):
     await close_db()
 
 
+# ─────────────────────────────────────────── Middleware Gate (DOIT ÊTRE AJOUTÉ EN PREMIER)
+# Ce middleware bloque les routes des plugins inactifs
+# Il doit être ajouté AVANT que l'application ne démarre (pas dans lifespan)
+from starlette.middleware import Middleware as StarletteMiddleware
+_app_middlewares = [
+    StarletteMiddleware(PluginGateMiddleware),
+]
+
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
@@ -39,6 +47,7 @@ app = FastAPI(
     redoc_url="/redoc" if settings.DEBUG else None,
     openapi_url="/openapi.json" if settings.DEBUG else None,
     lifespan=lifespan,
+    middleware=_app_middlewares,
 )
 
 # ─────────────────────────────────────────── CORS
