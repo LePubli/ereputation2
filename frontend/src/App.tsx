@@ -18,7 +18,8 @@ import SettingsPage from './pages/SettingsPage';
 import PluginsPage from './pages/PluginsPage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import SourcingPage from './pages/SourcingPage';
-
+import ThemesPage from './pages/ThemesPage';
+import { ThemeProvider } from './components/ThemeProvider';
 // Lazy stubs for pages not yet fully built
 import { lazy, Suspense } from 'react';
 
@@ -61,6 +62,7 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
+    <ThemeProvider>
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
@@ -84,6 +86,7 @@ export default function App() {
           <Route path="webhooks" element={<WebhooksPage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="plugins" element={<PluginsPage />} />
+          <Route path="themes" element={<ThemesPage />} />
           <Route path="abm" element={
             <Suspense fallback={<PageLoader />}>
               <ABMPage />
@@ -106,5 +109,6 @@ export default function App() {
         } />
       </Routes>
     </BrowserRouter>
+    </ThemeProvider>
   );
 }
